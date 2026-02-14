@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  /* Background layers */
+  --color-base: #0A0A0A;
+  --color-surface-1: #161616;
+  --color-surface-2: #1E1E1E;
+  --color-surface-3: #2A2A2A;
+
+  /* Accent */
+  --color-accent: #D4A843;
+  --color-accent-bright: #E8B84D;
+
+  /* Generate button / CTA */
+  --color-cta-bg: #F0F0F0;
+  --color-cta-text: #0A0A0A;
+
+  /* Functional (hex versions for Tailwind opacity modifiers) */
+  --color-success-hex: #4CAF50;
+  --color-error-hex: #E57373;
+  --color-info-hex: #64B5F6;
+
+  /* Panel dimensions */
+  --sidebar-width: 220px;
+  --sidebar-collapsed: 60px;
+  --controls-width: 320px;
+
+  /* Font families */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', monospace;
+}
+
+:root {
+  /* Text opacity levels */
+  --text-primary: rgba(255, 255, 255, 0.90);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-tertiary: rgba(255, 255, 255, 0.35);
+
+  /* Border opacity levels */
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.10);
+  --border-focus: rgba(255, 255, 255, 0.15);
+
+  /* Functional colors (rgba) */
+  --color-success: rgba(76, 175, 80, 0.80);
+  --color-error: rgba(229, 115, 115, 0.80);
+  --color-info: rgba(100, 181, 246, 0.80);
+
+  /* Accent (for arbitrary value references like bg-[--accent]) */
+  --accent: #D4A843;
+}
+
+/* Global base */
+html, body, #root {
+  background-color: var(--color-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
