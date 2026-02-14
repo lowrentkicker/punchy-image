@@ -192,7 +192,7 @@ async def generate(request: GenerateRequest) -> GenerateResponse | BatchGenerate
             batch_id = request.batch_id or str(uuid.uuid4())
             completed: list[GenerateResponse] = []
             errors: list[str] = []
-            stagger_delay = 2.5  # seconds between requests to avoid rate limits
+            stagger_delay = 5.0  # seconds between requests to avoid rate limits
 
             # Determine per-variation model IDs (multi-model support)
             if request.model_ids and len(request.model_ids) == variations:
@@ -206,23 +206,36 @@ async def generate(request: GenerateRequest) -> GenerateResponse | BatchGenerate
             else:
                 variation_model_ids = [request.model_id] * variations
 
+            max_variation_attempts = 2  # Original attempt + 1 retry
+
             for i in range(variations):
                 if i > 0:
                     await asyncio.sleep(stagger_delay)
                 if cancel_event.is_set():
                     break
-                try:
-                    var_request = request.model_copy(update={"model_id": variation_model_ids[i]})
-                    result = await _generate_single(var_request, cancel_event, batch_id=batch_id)
-                    completed.append(result)
-                except OpenRouterError as e:
-                    log_error(f"Batch variation {i+1}/{variations} (model={variation_model_ids[i]}) failed: {e.error_type} - {e.message}")
-                    errors.append(f"Variation {i+1}: {e.message}")
-                    if e.error_type == "rate_limit" and e.retry_after:
-                        stagger_delay = max(stagger_delay, e.retry_after)
-                except Exception as e:
-                    log_error(f"Batch variation {i+1}/{variations} unexpected error: {e}", e)
-                    errors.append(f"Variation {i+1}: unexpected error")
+
+                for attempt in range(max_variation_attempts):
+                    try:
+                        var_request = request.model_copy(update={"model_id": variation_model_ids[i]})
+                        result = await _generate_single(var_request, cancel_event, batch_id=batch_id)
+                        completed.append(result)
+                        break  # Success — exit retry loop
+                    except OpenRouterError as e:
+                        log_error(
+                            f"Batch variation {i+1}/{variations} attempt {attempt+1} "
+                            f"(model={variation_model_ids[i]}) failed: {e.error_type} - {e.message}"
+                        )
+                        if e.error_type == "rate_limit" and e.retry_after:
+                            stagger_delay = max(stagger_delay, e.retry_after)
+                        if attempt < max_variation_attempts - 1 and e.error_type in ("rate_limit", "server"):
+                            retry_wait = e.retry_after or (stagger_delay * 2)
+                            await asyncio.sleep(retry_wait)
+                        else:
+                            errors.append(f"Variation {i+1}: {e.message}")
+                    except Exception as e:
+                        log_error(f"Batch variation {i+1}/{variations} unexpected error: {e}", e)
+                        errors.append(f"Variation {i+1}: unexpected error")
+                        break  # Don't retry unexpected errors
 
             if not completed:
                 raise OpenRouterError("server", "All variations failed. " + "; ".join(errors))
@@ -232,6 +245,7 @@ async def generate(request: GenerateRequest) -> GenerateResponse | BatchGenerate
                 results=completed,
                 total_requested=variations,
                 total_completed=len(completed),
+                errors=errors,
             )
 
     except OpenRouterError as e:

@@ -7,16 +7,20 @@ export function ReferenceUpload() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
       if (!file.type.startsWith('image/')) return;
       setUploading(true);
+      setError(null);
       try {
         const ref = await api.uploadReference(file);
         dispatch({ type: 'SET_REFERENCE_IMAGE', referenceImage: ref });
-      } catch {
-        // Upload errors are non-critical — user can try again
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+        console.warn('Reference upload failed:', err);
+        setError(message);
       } finally {
         setUploading(false);
       }
@@ -52,6 +56,7 @@ export function ReferenceUpload() {
             src={state.referenceImage.thumbnail_url}
             alt="Reference"
             className="h-16 w-16 rounded-lg border border-[--border-subtle] object-cover"
+            onError={() => console.warn('Reference thumbnail failed to load:', state.referenceImage?.thumbnail_url)}
           />
           <button
             onClick={handleRemove}
@@ -111,6 +116,12 @@ export function ReferenceUpload() {
           e.target.value = '';
         }}
       />
+      {error && (
+        <p className="mt-1 text-[10px] text-[--color-error]">{error}</p>
+      )}
+      <p className="mt-1 text-[10px] text-[--text-tertiary]">
+        Works best with conversational models (Gemini, GPT-5)
+      </p>
     </div>
   );
 }

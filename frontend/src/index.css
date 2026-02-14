@@ -23,7 +23,7 @@
   /* Panel dimensions */
   --sidebar-width: 220px;
   --sidebar-collapsed: 60px;
-  --controls-width: 320px;
+  --controls-width: 280px;
 
   /* Font families */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -90,4 +90,32 @@ html, body, #root {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+/* Range slider thumb — global rules to avoid Tailwind v4 arbitrary value bug */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background-color: var(--color-accent);
+  border: 0;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background-color: var(--color-accent);
+  border: 0;
+  cursor: pointer;
+}
+input[type="range"].slider-sm::-webkit-slider-thumb {
+  height: 12px;
+  width: 12px;
+}
+input[type="range"].slider-sm::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
 }

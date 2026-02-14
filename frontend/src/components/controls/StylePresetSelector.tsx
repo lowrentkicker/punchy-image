@@ -22,7 +22,7 @@ export function StylePresetSelector() {
       <label className="mb-1.5 block text-xs font-medium text-[--text-secondary]">
         Style Preset
       </label>
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+      <div className="flex flex-wrap gap-1.5">
         {presets.map((preset) => {
           const isActive = state.stylePreset === preset.id;
           return (
@@ -31,7 +31,7 @@ export function StylePresetSelector() {
               onClick={() =>
                 dispatch({ type: 'SET_STYLE_PRESET', stylePreset: preset.id })
               }
-              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors duration-150 ${
+              className={`rounded-lg px-2 py-1 text-[10px] font-medium transition-colors duration-150 ${
                 isActive
                   ? 'bg-accent text-[#0A0A0A]'
                   : 'bg-surface-2 text-[--text-secondary] hover:text-[--text-primary] hover:bg-surface-3'

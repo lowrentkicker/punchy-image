@@ -58,8 +58,7 @@ export function MaskToolbar({
             max={100}
             value={brushSize}
             onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-            className="w-20 accent-[--accent] h-1 rounded-full appearance-none bg-surface-3 cursor-pointer
-              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[--accent]"
+            className="w-20 h-1 rounded-full appearance-none bg-surface-3 cursor-pointer slider-sm"
           />
           <span className="w-6 text-[10px] text-[--text-tertiary]">{brushSize}</span>
         </div>

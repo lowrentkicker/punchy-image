@@ -48,6 +48,8 @@ class ConversationSessionSummary(BaseModel):
 
 class CreateSessionRequest(BaseModel):
     model_id: str
+    initial_prompt: str | None = None
+    initial_image_id: str | None = None
 
 
 class ConversationEditRequest(BaseModel):

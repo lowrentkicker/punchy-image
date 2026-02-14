@@ -1,18 +1,22 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { api } from '../../services/api';
 
 export function StyleReferenceUpload() {
   const { state, dispatch } = useAppContext();
   const ref = state.styleReference;
+  const [error, setError] = useState<string | null>(null);
 
   const handleUpload = useCallback(
     async (file: File) => {
+      setError(null);
       try {
         const result = await api.uploadReference(file);
         dispatch({ type: 'SET_STYLE_REFERENCE', styleReference: result });
-      } catch {
-        // Upload errors handled at a higher level
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+        console.warn('Style reference upload failed:', err);
+        setError(message);
       }
     },
     [dispatch],
@@ -53,6 +57,7 @@ export function StyleReferenceUpload() {
             src={ref.thumbnail_url}
             alt="Style reference"
             className="h-16 w-16 rounded-lg border border-[--border-subtle] object-cover"
+            onError={() => console.warn('Style reference thumbnail failed to load:', ref.thumbnail_url)}
           />
           <button
             onClick={handleRemove}
@@ -79,6 +84,9 @@ export function StyleReferenceUpload() {
             className="hidden"
           />
         </label>
+      )}
+      {error && (
+        <p className="mt-1 text-[10px] text-[--color-error]">{error}</p>
       )}
       <p className="mt-1 text-[10px] text-[--text-tertiary]">
         Copies visual style, not subject matter

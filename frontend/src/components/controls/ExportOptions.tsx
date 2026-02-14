@@ -45,8 +45,7 @@ export function ExportOptions() {
             onChange={(e) =>
               dispatch({ type: 'SET_EXPORT_QUALITY', quality: Number(e.target.value) })
             }
-            className="mt-0.5 w-full accent-[--accent] h-1.5 rounded-full appearance-none bg-surface-3 cursor-pointer
-              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[--accent] [&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:cursor-pointer"
+            className="mt-0.5 w-full h-1.5 rounded-full appearance-none bg-surface-3 cursor-pointer"
           />
         </div>
       )}

@@ -71,7 +71,26 @@ async def create_conversation_session(request: CreateSessionRequest) -> Conversa
         raise HTTPException(status_code=400, detail="No API key configured")
     if request.model_id not in MODELS:
         raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_id}")
-    return create_session(request.model_id)
+    session = create_session(request.model_id)
+
+    # Seed session with original generation context so the model knows what to edit
+    if request.initial_prompt:
+        add_turn(session, prompt=request.initial_prompt, role="user")
+    if request.initial_image_id:
+        image_filename = f"{request.initial_image_id}.png"
+        thumbnail_filename = f"{request.initial_image_id}_thumb.png"
+        image_url = f"/api/images/default/{image_filename}"
+        thumbnail_url = f"/api/images/default/thumbnails/{thumbnail_filename}"
+        add_turn(
+            session,
+            prompt=None,
+            image_id=request.initial_image_id,
+            image_url=image_url,
+            thumbnail_url=thumbnail_url,
+            role="assistant",
+        )
+
+    return session
 
 
 @router.get("/conversation/sessions", response_model=list[ConversationSessionSummary])

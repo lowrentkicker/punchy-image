@@ -160,10 +160,10 @@ export const api = {
 
   // ── Phase 4: Conversation Sessions ────────────────────────────────
 
-  createConversationSession: (model_id: string) =>
+  createConversationSession: (model_id: string, initial_prompt?: string, initial_image_id?: string) =>
     request<ConversationSession>('/conversation/sessions', {
       method: 'POST',
-      body: JSON.stringify({ model_id }),
+      body: JSON.stringify({ model_id, initial_prompt, initial_image_id }),
     }),
 
   listConversationSessions: () =>

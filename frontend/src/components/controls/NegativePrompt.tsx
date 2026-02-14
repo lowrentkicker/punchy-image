@@ -22,15 +22,20 @@ export function NegativePrompt() {
         </svg>
       </button>
       {expanded && (
-        <textarea
-          value={state.negativePrompt}
-          onChange={(e) =>
-            dispatch({ type: 'SET_NEGATIVE_PROMPT', negativePrompt: e.target.value })
-          }
-          placeholder="Things to exclude from the image..."
-          rows={2}
-          className="mt-2 w-full resize-y rounded-xl border border-[--border-subtle] bg-surface-2 p-3 text-xs text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-[--border-focus] focus:outline-none transition-colors duration-150"
-        />
+        <>
+          <textarea
+            value={state.negativePrompt}
+            onChange={(e) =>
+              dispatch({ type: 'SET_NEGATIVE_PROMPT', negativePrompt: e.target.value })
+            }
+            placeholder="Things to exclude from the image..."
+            rows={2}
+            className="mt-2 w-full resize-y rounded-xl border border-[--border-subtle] bg-surface-2 p-3 text-xs text-[--text-primary] placeholder:text-[--text-tertiary] focus:border-[--border-focus] focus:outline-none transition-colors duration-150"
+          />
+          <p className="mt-1 text-[10px] text-[--text-tertiary]">
+            Negative prompts are advisory. Some models may not fully exclude all listed elements.
+          </p>
+        </>
       )}
     </div>
   );

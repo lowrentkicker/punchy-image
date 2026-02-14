@@ -54,12 +54,15 @@ export type Action =
   | { type: 'REMOVE_CHARACTER_REFERENCE'; referenceId: string }
   | { type: 'SET_VARIATIONS'; variations: number }
   | { type: 'SET_MULTI_MODEL'; multiModel: boolean }
-  | { type: 'BATCH_GENERATION_SUCCESS'; results: GenerationResult[]; batchId: string }
+  | { type: 'SET_SELECTED_MODEL_IDS'; modelIds: string[] }
+  | { type: 'BATCH_GENERATION_SUCCESS'; results: GenerationResult[]; batchId: string; totalRequested?: number }
+  | { type: 'SELECT_BATCH_RESULT'; result: GenerationResult }
   | { type: 'SET_MODEL_RECOMMENDATION'; recommendation: ModelRecommendation | null }
   | { type: 'SET_EXPORT_FORMAT'; format: 'png' | 'jpeg' | 'webp' }
   | { type: 'SET_EXPORT_QUALITY'; quality: number }
   // Phase 4
   | { type: 'SET_CONVERSATION_SESSION'; session: ConversationSession | null }
+  | { type: 'DISMISS_CHAT_PANEL' }
   | { type: 'SET_MASK_MODE'; enabled: boolean }
   | { type: 'SET_SUBJECT_LOCK'; locked: boolean; imageId: string | null }
   // Phase 5
@@ -104,11 +107,14 @@ const initialState: AppState = {
   variations: 1,
   multiModel: false,
   batchResults: null,
+  batchTotalRequested: null,
+  selectedModelIds: [],
   modelRecommendation: null,
   exportFormat: 'png',
   exportQuality: 90,
   // Phase 4
   conversationSession: null,
+  chatPanelDismissed: false,
   isMaskMode: false,
   subjectLocked: false,
   subjectLockImageId: null,
@@ -135,14 +141,16 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SELECT_MODEL':
       return { ...state, selectedModelId: action.modelId };
     case 'START_GENERATION':
-      return { ...state, isGenerating: true, error: null, requestId: action.requestId, batchResults: null };
+      return { ...state, isGenerating: true, error: null, requestId: action.requestId, batchResults: null, batchTotalRequested: null };
     case 'GENERATION_SUCCESS':
       return {
         ...state,
         isGenerating: false,
         currentGeneration: action.result,
         batchResults: null,
+        batchTotalRequested: null,
         requestId: null,
+        chatPanelDismissed: false,
       };
     case 'GENERATION_ERROR':
       return { ...state, isGenerating: false, error: action.error, requestId: null };
@@ -199,17 +207,22 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
     case 'SET_VARIATIONS':
-      return { ...state, variations: Math.max(1, Math.min(4, action.variations)) };
+      return { ...state, variations: Math.max(1, Math.min(4, action.variations)), selectedModelIds: [] };
     case 'SET_MULTI_MODEL':
-      return { ...state, multiModel: action.multiModel };
+      return { ...state, multiModel: action.multiModel, selectedModelIds: [] };
+    case 'SET_SELECTED_MODEL_IDS':
+      return { ...state, selectedModelIds: action.modelIds };
     case 'BATCH_GENERATION_SUCCESS':
       return {
         ...state,
         isGenerating: false,
         batchResults: action.results,
+        batchTotalRequested: action.totalRequested ?? action.results.length,
         currentGeneration: action.results[0] ?? null,
         requestId: null,
       };
+    case 'SELECT_BATCH_RESULT':
+      return { ...state, currentGeneration: action.result };
     case 'SET_MODEL_RECOMMENDATION':
       return { ...state, modelRecommendation: action.recommendation };
     case 'SET_EXPORT_FORMAT':
@@ -219,6 +232,8 @@ function reducer(state: AppState, action: Action): AppState {
     // Phase 4
     case 'SET_CONVERSATION_SESSION':
       return { ...state, conversationSession: action.session };
+    case 'DISMISS_CHAT_PANEL':
+      return { ...state, chatPanelDismissed: true, conversationSession: null };
     case 'SET_MASK_MODE':
       return { ...state, isMaskMode: action.enabled };
     case 'SET_SUBJECT_LOCK':

@@ -47,6 +47,7 @@ class BatchGenerateResponse(BaseModel):
     results: list[GenerateResponse]
     total_requested: int
     total_completed: int
+    errors: list[str] = []
 
 
 class GenerationError(BaseModel):

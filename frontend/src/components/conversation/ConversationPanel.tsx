@@ -8,6 +8,8 @@ export function ConversationPanel() {
   const { conversationSession: session, selectedModelId, isGenerating } = state;
   const [prompt, setPrompt] = useState('');
   const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [creatingSession, setCreatingSession] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedModel = state.models.find((m) => m.id === selectedModelId);
@@ -28,12 +30,25 @@ export function ConversationPanel() {
   if (!isConversational) return null;
 
   const handleStartSession = async () => {
-    if (!selectedModelId) return;
+    if (!selectedModelId || creatingSession) return;
+    setSessionError(null);
+    setCreatingSession(true);
     try {
-      const newSession = await api.createConversationSession(selectedModelId);
+      const newSession = await api.createConversationSession(
+        selectedModelId,
+        state.currentGeneration?.prompt,
+        state.currentGeneration?.image_id,
+      );
       dispatch({ type: 'SET_CONVERSATION_SESSION', session: newSession });
-    } catch {
-      // Error handled by global error banner
+    } catch (err) {
+      const message = err instanceof Error
+        ? err.message
+        : typeof err === 'string'
+        ? err
+        : (err as { message?: string })?.message ?? 'Failed to start session. Check your API key and try again.';
+      setSessionError(message);
+    } finally {
+      setCreatingSession(false);
     }
   };
 
@@ -94,20 +109,36 @@ export function ConversationPanel() {
     dispatch({ type: 'SET_CONVERSATION_SESSION', session: newSession });
   };
 
-  // No session yet — show start button
+  // No session yet — show start button with explanation
   if (!session) {
     return (
       <div className="flex w-80 shrink-0 flex-col border-r border-[--border-default] bg-surface-1">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[--border-default]">
           <span className="text-sm font-semibold text-[--text-primary]">Chat</span>
+          <button
+            onClick={() => dispatch({ type: 'DISMISS_CHAT_PANEL' })}
+            className="rounded-full p-1.5 text-[--text-tertiary] hover:bg-surface-2 hover:text-[--text-secondary] transition-colors duration-150"
+            aria-label="Close chat"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div className="flex flex-1 items-center justify-center p-4">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+          <p className="text-xs text-[--text-tertiary] text-center">
+            Edit your generated image through conversation
+          </p>
           <button
             onClick={handleStartSession}
-            className="rounded-xl bg-[--cta-bg] px-4 py-2 text-sm font-medium text-[--cta-text] hover:opacity-90 transition-opacity"
+            disabled={creatingSession}
+            className="rounded-xl bg-[--cta-bg] px-4 py-2 text-sm font-medium text-[--cta-text] hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            Start Editing Session
+            {creatingSession ? 'Starting...' : 'Start Editing Session'}
           </button>
+          {sessionError && (
+            <p className="text-[10px] text-[--color-error] text-center">{sessionError}</p>
+          )}
         </div>
       </div>
     );
@@ -139,6 +170,15 @@ export function ConversationPanel() {
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'DISMISS_CHAT_PANEL' })}
+            className="rounded-lg p-1.5 text-[--text-tertiary] hover:bg-surface-2 hover:text-[--text-secondary] transition-colors"
+            title="Close chat"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>

@@ -135,9 +135,15 @@ def build_prompt(
     if negative_prompt and negative_prompt.strip():
         neg = negative_prompt.strip()
         if model_id and is_conversational(model_id):
-            parts.append(f"Do NOT include the following in the generated image: {neg}")
+            parts.append(
+                f"IMPORTANT: Do NOT include any of the following in the generated image. "
+                f"These elements must be completely absent: {neg}"
+            )
         else:
-            parts.append(f"Avoid: {neg}")
+            parts.append(
+                f"IMPORTANT: The following must NOT appear anywhere in the image. "
+                f"Exclude completely: {neg}"
+            )
 
     # 6. Image weight adjustment (modifies reference image instruction framing)
     if image_weight is not None and (has_character_refs or has_style_ref):

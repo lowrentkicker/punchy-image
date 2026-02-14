@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ModelSelector } from './ModelSelector';
 import { ModelRecommendationBadge } from './ModelRecommendationBadge';
 import { PromptInput } from './PromptInput';
@@ -17,12 +18,72 @@ import { CostEstimateDisplay } from './CostEstimateDisplay';
 import { useGenerate } from '../../hooks/useGenerate';
 import { useAppContext } from '../../hooks/useAppContext';
 
+const MIN_WIDTH = 240;
+const MAX_WIDTH = 420;
+const STORAGE_KEY = 'imagegen-controls-width';
+
+function getStoredWidth(): number | null {
+  try {
+    const val = localStorage.getItem(STORAGE_KEY);
+    if (val) {
+      const n = parseInt(val, 10);
+      if (n >= MIN_WIDTH && n <= MAX_WIDTH) return n;
+    }
+  } catch {}
+  return null;
+}
+
 export function ControlsPanel() {
   const { state, dispatch } = useAppContext();
   const prompt = state.prompt;
   const setPrompt = (value: string) => dispatch({ type: 'SET_PROMPT', prompt: value });
   const { generate, cancel, isGenerating } = useGenerate();
   const collapsed = state.controlsCollapsed;
+
+  const [width, setWidth] = useState<number | null>(getStoredWidth);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    startX.current = e.clientX;
+    startWidth.current = width ?? 280;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [width]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      // Dragging left edge: moving mouse left = wider, right = narrower
+      const delta = startX.current - e.clientX;
+      const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth.current + delta));
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  // Persist width changes
+  useEffect(() => {
+    if (width !== null) {
+      try { localStorage.setItem(STORAGE_KEY, String(width)); } catch {}
+    }
+  }, [width]);
 
   const handleGenerate = () => {
     if (prompt.trim()) {
@@ -46,8 +107,19 @@ export function ControlsPanel() {
     );
   }
 
+  const panelStyle = width ? { width: `${width}px` } : {};
+
   return (
-    <div className="flex w-[--controls-width] shrink-0 flex-col border-l border-[--border-default] bg-surface-1 transition-all duration-250 ease-out">
+    <div
+      className={`relative flex shrink-0 flex-col border-l border-[--border-default] bg-surface-1 ${width ? '' : 'w-[--controls-width]'}`}
+      style={panelStyle}
+    >
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors z-10"
+      />
+
       {/* Panel header */}
       <div className="flex items-center justify-between px-4 py-3">
         <span className="text-sm font-semibold text-[--text-primary]">Controls</span>

@@ -31,6 +31,7 @@ export interface BatchGenerationResult {
   results: GenerationResult[];
   total_requested: number;
   total_completed: number;
+  errors?: string[];
 }
 
 export interface ModelCapability {
@@ -251,11 +252,14 @@ export interface AppState {
   variations: number;
   multiModel: boolean;
   batchResults: GenerationResult[] | null;
+  batchTotalRequested: number | null;
+  selectedModelIds: string[];
   modelRecommendation: ModelRecommendation | null;
   exportFormat: 'png' | 'jpeg' | 'webp';
   exportQuality: number;
   // Phase 4
   conversationSession: ConversationSession | null;
+  chatPanelDismissed: boolean;
   isMaskMode: boolean;
   subjectLocked: boolean;
   subjectLockImageId: string | null;

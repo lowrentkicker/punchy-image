@@ -26,7 +26,7 @@ export function ImageCanvas() {
   };
 
   const handleSelectVariation = (result: GenerationResult) => {
-    dispatch({ type: 'GENERATION_SUCCESS', result });
+    dispatch({ type: 'SELECT_BATCH_RESULT', result });
   };
 
   // Loading state — shimmer placeholder(s)
@@ -93,7 +93,7 @@ export function ImageCanvas() {
   }
 
   // Batch variation display
-  if (batchResults && batchResults.length > 1) {
+  if (batchResults && batchResults.length >= 1) {
     const isMultiModel = batchResults.some((r) => r.model_id !== batchResults[0].model_id);
 
     return (
@@ -130,7 +130,9 @@ export function ImageCanvas() {
         <div className="border-t border-[--border-default] bg-surface-1 px-6 py-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-[--text-tertiary]">
-              {batchResults.length} variations
+              {state.batchTotalRequested && state.batchTotalRequested > batchResults.length
+                ? `${batchResults.length} of ${state.batchTotalRequested} variations completed`
+                : `${batchResults.length} variations`}
             </span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -161,10 +163,10 @@ export function ImageCanvas() {
                     e.stopPropagation();
                     handleDownload(result.image_id);
                   }}
-                  className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 group-hover:bg-black/40 group-hover:opacity-100 transition-all duration-150"
+                  className="absolute top-0.5 left-0.5 flex items-center justify-center rounded bg-black/60 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                   aria-label={`Download variation ${i + 1}`}
                 >
-                  <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                 </button>

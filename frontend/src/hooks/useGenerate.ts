@@ -29,11 +29,15 @@ export function useGenerate() {
         // Compute model_ids for multi-model variations
         let modelIds: string[] | null = null;
         if (state.multiModel && state.variations > 1) {
-          const otherModels = state.models
-            .filter((m) => m.id !== state.selectedModelId)
-            .map((m) => m.id);
-          const needed = state.variations - 1;
-          modelIds = [state.selectedModelId!, ...otherModels.slice(0, needed)];
+          if (state.selectedModelIds.length === state.variations) {
+            modelIds = state.selectedModelIds;
+          } else {
+            const otherModels = state.models
+              .filter((m) => m.id !== state.selectedModelId)
+              .map((m) => m.id);
+            const needed = state.variations - 1;
+            modelIds = [state.selectedModelId!, ...otherModels.slice(0, needed)];
+          }
         }
 
         const result = await api.generate(
@@ -63,6 +67,7 @@ export function useGenerate() {
             type: 'BATCH_GENERATION_SUCCESS',
             results: result.results,
             batchId: result.batch_id,
+            totalRequested: result.total_requested,
           });
         } else {
           dispatch({ type: 'GENERATION_SUCCESS', result });
@@ -97,6 +102,7 @@ export function useGenerate() {
       state.characterReferences,
       state.variations,
       state.multiModel,
+      state.selectedModelIds,
       state.models,
       dispatch,
     ],

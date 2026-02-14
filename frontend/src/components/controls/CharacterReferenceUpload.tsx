@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { api } from '../../services/api';
 
@@ -6,15 +6,19 @@ export function CharacterReferenceUpload() {
   const { state, dispatch } = useAppContext();
   const refs = state.characterReferences;
   const canAdd = refs.length < 5;
+  const [error, setError] = useState<string | null>(null);
 
   const handleUpload = useCallback(
     async (file: File) => {
       if (!canAdd) return;
+      setError(null);
       try {
         const result = await api.uploadReference(file);
         dispatch({ type: 'ADD_CHARACTER_REFERENCE', reference: result });
-      } catch {
-        // Upload errors handled at a higher level
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+        console.warn('Character reference upload failed:', err);
+        setError(message);
       }
     },
     [canAdd, dispatch],
@@ -62,6 +66,7 @@ export function CharacterReferenceUpload() {
               src={ref.thumbnail_url}
               alt="Character reference"
               className="h-14 w-14 rounded-lg border border-[--border-subtle] object-cover"
+              onError={() => console.warn('Character reference thumbnail failed to load:', ref.thumbnail_url)}
             />
             <button
               onClick={() => handleRemove(ref.reference_id)}
@@ -91,6 +96,9 @@ export function CharacterReferenceUpload() {
           </label>
         )}
       </div>
+      {error && (
+        <p className="mt-1 text-[10px] text-[--color-error]">{error}</p>
+      )}
       <p className="mt-1 text-[10px] text-[--text-tertiary]">
         Maintains identity across generations
       </p>

@@ -23,7 +23,7 @@ export function Workspace() {
           <>
             <div className="flex min-w-0 flex-1 overflow-hidden">
               <ImageCanvas />
-              <ConversationPanel />
+              {state.currentGeneration && !state.chatPanelDismissed && <ConversationPanel />}
             </div>
             <ControlsPanel />
           </>

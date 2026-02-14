@@ -8,6 +8,11 @@ export function VariationsControl() {
   // Compute which models would be used for multi-model variations
   const getMultiModelIds = (): string[] => {
     if (!state.selectedModelId || state.variations <= 1) return [];
+    // Use user-selected IDs if they match the variation count
+    if (state.selectedModelIds.length === state.variations) {
+      return state.selectedModelIds;
+    }
+    // Default: selected model first, then other models in order
     const otherModels = state.models
       .filter((m) => m.id !== state.selectedModelId)
       .map((m) => m.id);
@@ -59,18 +64,27 @@ export function VariationsControl() {
           </button>
 
           {state.multiModel && modelIds.length > 1 && (
-            <div className="flex flex-wrap gap-1">
-              {modelIds.map((id, i) => {
-                const model = state.models.find((m) => m.id === id);
-                return (
-                  <span
-                    key={id}
-                    className="rounded bg-surface-3 px-1.5 py-0.5 text-[9px] text-[--text-tertiary]"
+            <div className="space-y-1">
+              {modelIds.map((id, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className="shrink-0 text-[9px] text-[--text-tertiary] w-3">{i + 1}.</span>
+                  <select
+                    value={id}
+                    onChange={(e) => {
+                      const updated = [...modelIds];
+                      updated[i] = e.target.value;
+                      dispatch({ type: 'SET_SELECTED_MODEL_IDS', modelIds: updated });
+                    }}
+                    className="flex-1 rounded-lg border border-[--border-subtle] bg-surface-3 px-1.5 py-1 text-[10px] text-[--text-secondary] focus:border-[--border-focus] focus:outline-none cursor-pointer"
                   >
-                    {i + 1}. {model?.name ?? id.split('/')[1]}
-                  </span>
-                );
-              })}
+                    {state.models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
             </div>
           )}
         </div>
