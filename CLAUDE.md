@@ -2,9 +2,7 @@
 
 ## Project Overview
 
-ImageGen is a local web application for generating images from natural language using multiple AI models via the OpenRouter API. It runs entirely on the user's local MacOS machine. There is no cloud deployment, no user accounts, and no external database.
-
-**Read `ImageGen_PRD_v1.md` before making any architectural or feature decisions.** The PRD is the source of truth for all requirements, phasing, and acceptance criteria.
+Punchy Image is a local web application for generating images from natural language using multiple AI models via the OpenRouter API. It runs entirely on the user's local MacOS machine. There is no cloud deployment, no user accounts, and no external database.
 
 ---
 
@@ -52,18 +50,6 @@ Use `modalities: ["image"]` in API requests.
 - `bytedance-seed/seedream-4.5`
 
 **This distinction matters throughout the codebase.** Many features behave differently depending on whether the selected model is conversational or image-only. See the PRD Sections 4.3, 9.1, 9.2, 9.3 for specifics. When implementing any feature that interacts with models, check whether it needs branching logic for these two categories.
-
----
-
-## Development Phases
-
-The PRD defines five phases. **All five phases are implemented.**
-
-- **Phase 1 — Foundation:** App scaffolding, API key setup, text-to-image generation, PNG export, basic error handling, local storage scaffolding
-- **Phase 2 — Core Controls:** Single-image reference, aspect ratio, resolution, negative prompts, style presets, cost estimate, basic history
-- **Phase 3 — Advanced Image Features:** Image weight slider, style reference, character reference, batch variations (with multi-model support), smart model recommendation, full export
-- **Phase 4 — Editing and Sessions:** Conversational editing, subject consistency, masking/region editing, multi-image composition, super resolution
-- **Phase 5 — Organization and Polish:** Projects, templates, cumulative cost tracking, offline behavior, storage quota management, fallback suggestions
 
 ---
 
