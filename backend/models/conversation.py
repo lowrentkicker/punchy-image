@@ -60,7 +60,6 @@ class ConversationEditRequest(BaseModel):
     style_preset: str | None = None
     negative_prompt: str | None = None
     image_weight: int | None = None
-    text_in_image: dict | None = None
 
 
 class BranchRequest(BaseModel):

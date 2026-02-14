@@ -25,6 +25,17 @@ export function useGenerate() {
 
       try {
         const hasRefs = !!(state.styleReference || state.characterReferences.length);
+
+        // Compute model_ids for multi-model variations
+        let modelIds: string[] | null = null;
+        if (state.multiModel && state.variations > 1) {
+          const otherModels = state.models
+            .filter((m) => m.id !== state.selectedModelId)
+            .map((m) => m.id);
+          const needed = state.variations - 1;
+          modelIds = [state.selectedModelId!, ...otherModels.slice(0, needed)];
+        }
+
         const result = await api.generate(
           {
             prompt,
@@ -42,7 +53,7 @@ export function useGenerate() {
               ? state.characterReferences.map((r) => r.reference_id)
               : null,
             variations: state.variations,
-            text_in_image: state.textInImage,
+            model_ids: modelIds,
           },
           controller.signal,
         );
@@ -56,13 +67,20 @@ export function useGenerate() {
         } else {
           dispatch({ type: 'GENERATION_SUCCESS', result });
         }
+        // Clear any previous offline banner on successful generation
+        dispatch({ type: 'SET_ONLINE_STATUS', online: true });
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') {
           dispatch({ type: 'CANCEL_GENERATION' });
         } else {
+          const genError = err as GenerationError;
+          // Show offline banner when generation fails due to connectivity
+          if (genError.error_type === 'network' || genError.error_type === 'timeout') {
+            dispatch({ type: 'SET_ONLINE_STATUS', online: false });
+          }
           dispatch({
             type: 'GENERATION_ERROR',
-            error: err as GenerationError,
+            error: genError,
           });
         }
       }
@@ -78,7 +96,8 @@ export function useGenerate() {
       state.styleReference,
       state.characterReferences,
       state.variations,
-      state.textInImage,
+      state.multiModel,
+      state.models,
       dispatch,
     ],
   );

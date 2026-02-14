@@ -1,33 +1,9 @@
-import { useEffect, useRef } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
-import { api } from '../../services/api';
 
 export function ConnectivityBanner() {
-  const { state, dispatch } = useAppContext();
-  const { isOnline } = state;
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { state } = useAppContext();
 
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const status = await api.getConnectivity();
-        dispatch({ type: 'SET_ONLINE_STATUS', online: status.online });
-      } catch {
-        dispatch({ type: 'SET_ONLINE_STATUS', online: false });
-      }
-    };
-
-    // Initial check
-    check();
-
-    // Poll every 30s when idle
-    intervalRef.current = setInterval(check, 30_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [dispatch]);
-
-  if (isOnline) return null;
+  if (state.isOnline) return null;
 
   return (
     <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/5 px-4 py-2">

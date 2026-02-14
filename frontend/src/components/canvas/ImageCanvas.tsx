@@ -94,6 +94,8 @@ export function ImageCanvas() {
 
   // Batch variation display
   if (batchResults && batchResults.length > 1) {
+    const isMultiModel = batchResults.some((r) => r.model_id !== batchResults[0].model_id);
+
     return (
       <div className="relative flex flex-1 flex-col overflow-hidden bg-base">
         <MaskCanvas />
@@ -132,7 +134,11 @@ export function ImageCanvas() {
             </span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {batchResults.map((result, i) => (
+            {batchResults.map((result, i) => {
+              const modelName = isMultiModel
+                ? (state.models.find((m) => m.id === result.model_id)?.name ?? result.model_id.split('/')[1])
+                : null;
+              return (
               <button
                 key={result.image_id}
                 onClick={() => handleSelectVariation(result)}
@@ -144,11 +150,11 @@ export function ImageCanvas() {
               >
                 <img
                   src={result.thumbnail_url}
-                  alt={`Variation ${i + 1}`}
+                  alt={`Variation ${i + 1}${modelName ? ` (${modelName})` : ''}`}
                   className="h-16 w-16 object-cover"
                 />
                 <span className="absolute bottom-0.5 right-0.5 rounded bg-black/60 px-1 text-[9px] text-white">
-                  {i + 1}
+                  {modelName ?? (i + 1)}
                 </span>
                 <button
                   onClick={(e) => {
@@ -163,7 +169,8 @@ export function ImageCanvas() {
                   </svg>
                 </button>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 

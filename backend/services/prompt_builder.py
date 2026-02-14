@@ -5,9 +5,8 @@ Assembly order (per CLAUDE.md):
 2. Style reference instructions (if style reference image uploaded)
 3. User's prompt (unmodified)
 4. Style preset suffix (if preset other than "None" selected)
-5. Text-in-image instructions (if text fields populated)
-6. Negative prompt / exclusion instructions (if negative prompt provided)
-7. Image weight adjustment (modifies reference image instruction framing)
+5. Negative prompt / exclusion instructions (if negative prompt provided)
+6. Image weight adjustment (modifies reference image instruction framing)
 """
 
 from backend.config import is_conversational
@@ -91,42 +90,6 @@ def _build_image_weight_instruction(weight: int, model_id: str | None) -> str:
     return mapping[model_type]
 
 
-def _build_text_in_image_instruction(text_config: dict) -> str:
-    """Build text-in-image prompt instructions from config."""
-    text = text_config.get("text", "")
-    if not text.strip():
-        return ""
-
-    placement = text_config.get("placement", "center")
-    size = text_config.get("size", "headline")
-    color = text_config.get("color")
-    custom_placement = text_config.get("custom_placement")
-
-    size_map = {
-        "headline": "large, prominent headline",
-        "subheading": "medium-sized subheading",
-        "body": "standard body text",
-        "fine_print": "small, fine print text",
-    }
-    size_desc = size_map.get(size, "text")
-
-    if placement == "custom" and custom_placement:
-        placement_desc = custom_placement
-    else:
-        placement_map = {
-            "top": "at the top",
-            "center": "in the center",
-            "bottom": "at the bottom",
-        }
-        placement_desc = placement_map.get(placement, "in the center")
-
-    instruction = f"Include the text '{text}' rendered as a {size_desc} {placement_desc} of the image"
-    if color:
-        instruction += f" in {color} color"
-
-    return instruction
-
-
 def build_prompt(
     user_prompt: str,
     style_preset: str | None = None,
@@ -135,7 +98,6 @@ def build_prompt(
     has_character_refs: bool = False,
     has_style_ref: bool = False,
     image_weight: int | None = None,
-    text_in_image: dict | None = None,
 ) -> str:
     """Build the final prompt from user input and modifiers.
 
@@ -169,13 +131,7 @@ def build_prompt(
         if suffix:
             parts.append(suffix)
 
-    # 5. Text-in-image instructions
-    if text_in_image:
-        text_instruction = _build_text_in_image_instruction(text_in_image)
-        if text_instruction:
-            parts.append(text_instruction)
-
-    # 6. Negative prompt / exclusion instructions
+    # 5. Negative prompt / exclusion instructions
     if negative_prompt and negative_prompt.strip():
         neg = negative_prompt.strip()
         if model_id and is_conversational(model_id):
@@ -183,7 +139,7 @@ def build_prompt(
         else:
             parts.append(f"Avoid: {neg}")
 
-    # 7. Image weight adjustment (modifies reference image instruction framing)
+    # 6. Image weight adjustment (modifies reference image instruction framing)
     if image_weight is not None and (has_character_refs or has_style_ref):
         weight_instruction = _build_image_weight_instruction(image_weight, model_id)
         parts.append(weight_instruction)

@@ -14,7 +14,6 @@ import type {
   CostEstimate,
   StylePreset,
   HistoryEntry,
-  TextInImageConfig,
   ModelRecommendation,
   ConversationSession,
   Project,
@@ -54,7 +53,7 @@ export type Action =
   | { type: 'ADD_CHARACTER_REFERENCE'; reference: ReferenceImage }
   | { type: 'REMOVE_CHARACTER_REFERENCE'; referenceId: string }
   | { type: 'SET_VARIATIONS'; variations: number }
-  | { type: 'SET_TEXT_IN_IMAGE'; textInImage: TextInImageConfig | null }
+  | { type: 'SET_MULTI_MODEL'; multiModel: boolean }
   | { type: 'BATCH_GENERATION_SUCCESS'; results: GenerationResult[]; batchId: string }
   | { type: 'SET_MODEL_RECOMMENDATION'; recommendation: ModelRecommendation | null }
   | { type: 'SET_EXPORT_FORMAT'; format: 'png' | 'jpeg' | 'webp' }
@@ -103,7 +102,7 @@ const initialState: AppState = {
   styleReference: null,
   characterReferences: [],
   variations: 1,
-  textInImage: null,
+  multiModel: false,
   batchResults: null,
   modelRecommendation: null,
   exportFormat: 'png',
@@ -201,8 +200,8 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'SET_VARIATIONS':
       return { ...state, variations: Math.max(1, Math.min(4, action.variations)) };
-    case 'SET_TEXT_IN_IMAGE':
-      return { ...state, textInImage: action.textInImage };
+    case 'SET_MULTI_MODEL':
+      return { ...state, multiModel: action.multiModel };
     case 'BATCH_GENERATION_SUCCESS':
       return {
         ...state,

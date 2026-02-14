@@ -7,7 +7,6 @@ import type {
   StylePreset,
   CostEstimate,
   ReferenceImage,
-  TextInImageConfig,
   ModelRecommendation,
   ConversationSession,
   ConversationSessionSummary,
@@ -54,7 +53,7 @@ export interface GenerateParams {
   style_reference_id?: string | null;
   character_reference_ids?: string[] | null;
   variations?: number;
-  text_in_image?: TextInImageConfig | null;
+  model_ids?: string[] | null;
   batch_id?: string | null;
 }
 
@@ -130,13 +129,11 @@ export const api = {
 
   // Model recommendation
   getModelRecommendation: (params: {
-    has_text_in_image?: boolean;
     style_preset?: string | null;
     resolution?: string | null;
     has_character_refs?: boolean;
   }) => {
     const query = new URLSearchParams();
-    if (params.has_text_in_image) query.set('has_text_in_image', 'true');
     if (params.style_preset) query.set('style_preset', params.style_preset);
     if (params.resolution) query.set('resolution', params.resolution);
     if (params.has_character_refs) query.set('has_character_refs', 'true');
@@ -189,7 +186,6 @@ export const api = {
     style_preset?: string | null;
     negative_prompt?: string | null;
     image_weight?: number | null;
-    text_in_image?: Record<string, unknown> | null;
   }) =>
     request<GenerationResult>('/conversation/edit', {
       method: 'POST',

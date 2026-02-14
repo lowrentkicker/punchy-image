@@ -10,14 +10,12 @@ export function ModelRecommendationBadge() {
 
   // Fetch recommendation when relevant inputs change
   useEffect(() => {
-    const hasTextInImage = !!state.textInImage?.text?.trim();
     const stylePreset = state.stylePreset !== 'none' ? state.stylePreset : null;
     const resolution = state.resolution !== '1K' ? state.resolution : null;
     const hasCharacterRefs = state.characterReferences.length > 0;
 
     api
       .getModelRecommendation({
-        has_text_in_image: hasTextInImage,
         style_preset: stylePreset,
         resolution: resolution,
         has_character_refs: hasCharacterRefs,
@@ -25,7 +23,6 @@ export function ModelRecommendationBadge() {
       .then((r) => dispatch({ type: 'SET_MODEL_RECOMMENDATION', recommendation: r }))
       .catch(() => {});
   }, [
-    state.textInImage,
     state.stylePreset,
     state.resolution,
     state.characterReferences.length,

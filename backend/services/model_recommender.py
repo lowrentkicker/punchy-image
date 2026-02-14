@@ -75,7 +75,6 @@ def _get_capabilities_list() -> list[ModelCapability]:
 
 
 def recommend_model(
-    has_text_in_image: bool = False,
     style_preset: str | None = None,
     resolution: str | None = None,
     has_character_refs: bool = False,
@@ -83,20 +82,12 @@ def recommend_model(
     """Recommend a model based on the current generation context.
 
     Priority logic:
-    1. Text in Image → Gemini 3 Pro (industry-leading text rendering)
-    2. Product Photography preset → Gemini 3 Pro
-    3. 4K resolution → Gemini 3 Pro (confirmed 4K support)
-    4. Character references → Gemini 3 Pro (up to 5 subjects)
-    5. Default → Gemini 2.5 Flash (best cost/quality)
+    1. Product Photography preset → Gemini 3 Pro
+    2. 4K resolution → Gemini 3 Pro (confirmed 4K support)
+    3. Character references → Gemini 3 Pro (up to 5 subjects)
+    4. Default → Gemini 2.5 Flash (best cost/quality)
     """
     capabilities = _get_capabilities_list()
-
-    if has_text_in_image:
-        return ModelRecommendation(
-            recommended_model_id="google/gemini-3-pro-image-preview",
-            reason="Best text rendering — industry-leading accuracy for text in images",
-            capabilities=capabilities,
-        )
 
     if style_preset == "product_photography":
         return ModelRecommendation(

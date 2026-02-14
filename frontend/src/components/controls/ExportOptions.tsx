@@ -20,10 +20,10 @@ export function ExportOptions() {
           <button
             key={value}
             onClick={() => dispatch({ type: 'SET_EXPORT_FORMAT', format: value })}
-            className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors duration-150 ${
+            className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors duration-150 ${
               state.exportFormat === value
-                ? 'border-[--accent] bg-[--accent]/10 text-[--accent]'
-                : 'border-[--border-subtle] bg-surface-2 text-[--text-secondary] hover:border-[--border-medium]'
+                ? 'bg-accent text-[#0A0A0A]'
+                : 'bg-surface-2 text-[--text-secondary] hover:text-[--text-primary] hover:bg-surface-3'
             }`}
           >
             {label}
@@ -45,8 +45,8 @@ export function ExportOptions() {
             onChange={(e) =>
               dispatch({ type: 'SET_EXPORT_QUALITY', quality: Number(e.target.value) })
             }
-            className="mt-0.5 w-full accent-[--accent] h-1 rounded-full appearance-none bg-surface-3 cursor-pointer
-              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[--accent] [&::-webkit-slider-thumb]:border-0"
+            className="mt-0.5 w-full accent-[--accent] h-1.5 rounded-full appearance-none bg-surface-3 cursor-pointer
+              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[--accent] [&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:cursor-pointer"
           />
         </div>
       )}

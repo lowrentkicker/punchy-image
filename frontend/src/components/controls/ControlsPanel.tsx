@@ -11,7 +11,6 @@ import { StyleReferenceUpload } from './StyleReferenceUpload';
 import { CharacterReferenceUpload } from './CharacterReferenceUpload';
 import { ImageWeightSlider } from './ImageWeightSlider';
 import { VariationsControl } from './VariationsControl';
-import { TextInImageControl } from './TextInImageControl';
 import { ExportOptions } from './ExportOptions';
 import { SubjectLockToggle } from './SubjectLockToggle';
 import { CostEstimateDisplay } from './CostEstimateDisplay';
@@ -85,7 +84,6 @@ export function ControlsPanel() {
         <StyleReferenceUpload />
         <CharacterReferenceUpload />
         <ImageWeightSlider />
-        <TextInImageControl />
         <SubjectLockToggle />
         <NegativePrompt />
         <ExportOptions />

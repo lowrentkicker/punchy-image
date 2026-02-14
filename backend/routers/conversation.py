@@ -118,7 +118,6 @@ async def conversation_edit(request: ConversationEditRequest) -> GenerateRespons
         negative_prompt=request.negative_prompt,
         model_id=model_id,
         image_weight=request.image_weight,
-        text_in_image=request.text_in_image,
     )
 
     # For conversational models, include conversation history

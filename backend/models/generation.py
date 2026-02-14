@@ -4,14 +4,6 @@ from pydantic import BaseModel
 from typing import Any
 
 
-class TextInImageConfig(BaseModel):
-    text: str
-    placement: str = "center"  # top, center, bottom, custom
-    size: str = "headline"  # headline, subheading, body, fine_print
-    color: str | None = None
-    custom_placement: str | None = None  # freeform description when placement="custom"
-
-
 class GenerateRequest(BaseModel):
     prompt: str
     model_id: str
@@ -27,8 +19,8 @@ class GenerateRequest(BaseModel):
     style_reference_id: str | None = None
     character_reference_ids: list[str] | None = None  # 1-5 IDs
     variations: int = 1  # 1-4
-    text_in_image: TextInImageConfig | None = None
     batch_id: str | None = None
+    model_ids: list[str] | None = None  # For multi-model variations
 
 
 class GenerateResponse(BaseModel):

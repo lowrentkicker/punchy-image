@@ -33,14 +33,6 @@ export interface BatchGenerationResult {
   total_completed: number;
 }
 
-export interface TextInImageConfig {
-  text: string;
-  placement: 'top' | 'center' | 'bottom' | 'custom';
-  size: 'headline' | 'subheading' | 'body' | 'fine_print';
-  color?: string;
-  custom_placement?: string;
-}
-
 export interface ModelCapability {
   model_id: string;
   name: string;
@@ -257,7 +249,7 @@ export interface AppState {
   styleReference: ReferenceImage | null;
   characterReferences: ReferenceImage[];
   variations: number;
-  textInImage: TextInImageConfig | null;
+  multiModel: boolean;
   batchResults: GenerationResult[] | null;
   modelRecommendation: ModelRecommendation | null;
   exportFormat: 'png' | 'jpeg' | 'webp';

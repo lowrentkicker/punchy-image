@@ -65,7 +65,6 @@ async def _generate_single(
     """Execute a single generation request and save results to history."""
     has_character_refs = bool(request.character_reference_ids)
     has_style_ref = bool(request.style_reference_id)
-    text_in_image_dict = request.text_in_image.model_dump() if request.text_in_image else None
 
     final_prompt = build_prompt(
         user_prompt=request.prompt,
@@ -75,7 +74,6 @@ async def _generate_single(
         has_character_refs=has_character_refs,
         has_style_ref=has_style_ref,
         image_weight=request.image_weight,
-        text_in_image=text_in_image_dict,
     )
 
     # Resolve reference images
@@ -193,7 +191,20 @@ async def generate(request: GenerateRequest) -> GenerateResponse | BatchGenerate
         else:
             batch_id = request.batch_id or str(uuid.uuid4())
             completed: list[GenerateResponse] = []
-            stagger_delay = 1.5  # seconds between requests to avoid rate limits
+            errors: list[str] = []
+            stagger_delay = 2.5  # seconds between requests to avoid rate limits
+
+            # Determine per-variation model IDs (multi-model support)
+            if request.model_ids and len(request.model_ids) == variations:
+                for mid in request.model_ids:
+                    if mid not in MODELS:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={"error_type": "server", "message": f"Unknown model in model_ids: {mid}"},
+                        )
+                variation_model_ids = request.model_ids
+            else:
+                variation_model_ids = [request.model_id] * variations
 
             for i in range(variations):
                 if i > 0:
@@ -201,13 +212,20 @@ async def generate(request: GenerateRequest) -> GenerateResponse | BatchGenerate
                 if cancel_event.is_set():
                     break
                 try:
-                    result = await _generate_single(request, cancel_event, batch_id=batch_id)
+                    var_request = request.model_copy(update={"model_id": variation_model_ids[i]})
+                    result = await _generate_single(var_request, cancel_event, batch_id=batch_id)
                     completed.append(result)
-                except (OpenRouterError, Exception):
-                    pass  # Continue generating remaining variations
+                except OpenRouterError as e:
+                    log_error(f"Batch variation {i+1}/{variations} (model={variation_model_ids[i]}) failed: {e.error_type} - {e.message}")
+                    errors.append(f"Variation {i+1}: {e.message}")
+                    if e.error_type == "rate_limit" and e.retry_after:
+                        stagger_delay = max(stagger_delay, e.retry_after)
+                except Exception as e:
+                    log_error(f"Batch variation {i+1}/{variations} unexpected error: {e}", e)
+                    errors.append(f"Variation {i+1}: unexpected error")
 
             if not completed:
-                raise OpenRouterError("server", "All variations failed")
+                raise OpenRouterError("server", "All variations failed. " + "; ".join(errors))
 
             return BatchGenerateResponse(
                 batch_id=batch_id,
@@ -319,13 +337,11 @@ async def list_style_presets() -> list[dict]:
 
 @router.post("/model-recommendation", response_model=ModelRecommendation)
 async def get_model_recommendation(
-    has_text_in_image: bool = False,
     style_preset: str | None = None,
     resolution: str | None = None,
     has_character_refs: bool = False,
 ) -> ModelRecommendation:
     return recommend_model(
-        has_text_in_image=has_text_in_image,
         style_preset=style_preset,
         resolution=resolution,
         has_character_refs=has_character_refs,
