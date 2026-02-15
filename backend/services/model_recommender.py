@@ -6,6 +6,24 @@ from backend.models.project import FallbackSuggestion
 
 # Capability matrix per PRD Appendix A
 CAPABILITIES: dict[str, dict[str, str | bool]] = {
+    "black-forest-labs/flux.2-max": {
+        "conversational_editing": False,
+        "multi_image_blending": "Limited",
+        "identity_preservation": "Via reference",
+        "text_rendering": "Varies",
+        "max_resolution": "Per megapixel",
+        "relative_cost": "Medium",
+        "speed": "Medium",
+    },
+    "bytedance-seed/seedream-4.5": {
+        "conversational_editing": False,
+        "multi_image_blending": "Yes (native)",
+        "identity_preservation": "Via reference",
+        "text_rendering": "Improved (small text)",
+        "max_resolution": "Verify at dev time",
+        "relative_cost": "Low",
+        "speed": "Medium",
+    },
     "google/gemini-2.5-flash-image": {
         "conversational_editing": True,
         "multi_image_blending": "Yes (native)",
@@ -33,22 +51,13 @@ CAPABILITIES: dict[str, dict[str, str | bool]] = {
         "relative_cost": "High",
         "speed": "Medium",
     },
-    "black-forest-labs/flux.2-max": {
+    "sourceful/riverflow-v2-pro": {
         "conversational_editing": False,
         "multi_image_blending": "Limited",
         "identity_preservation": "Via reference",
-        "text_rendering": "Varies",
-        "max_resolution": "Per megapixel",
-        "relative_cost": "Medium",
-        "speed": "Medium",
-    },
-    "bytedance-seed/seedream-4.5": {
-        "conversational_editing": False,
-        "multi_image_blending": "Yes (native)",
-        "identity_preservation": "Via reference",
-        "text_rendering": "Improved (small text)",
-        "max_resolution": "Verify at dev time",
-        "relative_cost": "Low",
+        "text_rendering": "Perfect",
+        "max_resolution": "4K",
+        "relative_cost": "Medium-High",
         "speed": "Medium",
     },
 }
@@ -120,6 +129,18 @@ def recommend_model(
 # --- Fallback model suggestions (Phase 5, Section 10.6) ---
 
 FALLBACK_MAP: dict[str, list[str]] = {
+    "black-forest-labs/flux.2-max": [
+        "sourceful/riverflow-v2-pro",
+        "bytedance-seed/seedream-4.5",
+    ],
+    "bytedance-seed/seedream-4.5": [
+        "black-forest-labs/flux.2-max",
+        "sourceful/riverflow-v2-pro",
+    ],
+    "google/gemini-2.5-flash-image": [
+        "google/gemini-3-pro-image-preview",
+        "openai/gpt-5-image",
+    ],
     "google/gemini-3-pro-image-preview": [
         "google/gemini-2.5-flash-image",
         "openai/gpt-5-image",
@@ -127,15 +148,9 @@ FALLBACK_MAP: dict[str, list[str]] = {
     "openai/gpt-5-image": [
         "google/gemini-3-pro-image-preview",
     ],
-    "google/gemini-2.5-flash-image": [
-        "google/gemini-3-pro-image-preview",
-        "openai/gpt-5-image",
-    ],
-    "black-forest-labs/flux.2-max": [
-        "bytedance-seed/seedream-4.5",
-    ],
-    "bytedance-seed/seedream-4.5": [
+    "sourceful/riverflow-v2-pro": [
         "black-forest-labs/flux.2-max",
+        "bytedance-seed/seedream-4.5",
     ],
 }
 

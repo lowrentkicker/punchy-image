@@ -2,11 +2,13 @@
 
 import asyncio
 import base64
+import json
 from typing import Any
 
 import httpx
 
 from backend.config import MODELS, get_api_key
+from backend.services.image_processor import compress_for_size_limit, image_to_base64_url
 from backend.utils.logging import log_error
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -137,6 +139,52 @@ def _handle_error_status(response: httpx.Response, attempt: int) -> None:
         raise OpenRouterError("server", f"Unexpected error ({status}): {error_msg}")
 
 
+def _compress_payload_images(payload: dict[str, Any], max_bytes: int) -> None:
+    """Compress base64 images in the payload until total size fits within max_bytes.
+
+    Modifies the payload in place. Raises OpenRouterError if images can't be
+    compressed enough to fit.
+    """
+    # Reserve headroom for JSON structure, prompt text, etc.
+    overhead = max_bytes // 10  # 10% buffer
+    target = max_bytes - overhead
+
+    for msg in payload.get("messages", []):
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "image_url":
+                continue
+            url = part.get("image_url", {}).get("url", "")
+            if not url.startswith("data:image/"):
+                continue
+            # Decode the current base64 image
+            b64_data = url.split(",", 1)[1]
+            image_bytes = base64.b64decode(b64_data)
+            # Budget: split target evenly across remaining images (conservative)
+            per_image_budget = target // 2  # generous per-image allowance
+            try:
+                compressed = compress_for_size_limit(image_bytes, per_image_budget)
+            except ValueError:
+                raise OpenRouterError(
+                    "server",
+                    "Reference image too large for this model's 4.5MB request limit. "
+                    "Try using a smaller image.",
+                )
+            part["image_url"]["url"] = image_to_base64_url(compressed)
+
+    # Final size check
+    final_size = len(json.dumps(payload).encode())
+    if final_size > max_bytes:
+        raise OpenRouterError(
+            "server",
+            f"Request payload ({final_size // 1024}KB) exceeds this model's "
+            f"{max_bytes // (1024 * 1024)}MB limit even after compression. "
+            "Try using fewer or smaller reference images.",
+        )
+
+
 async def test_connection() -> tuple[bool, str]:
     """Test the API key with a lightweight request."""
     api_key = get_api_key()
@@ -228,6 +276,14 @@ async def generate_image(
         image_config["image_size"] = resolution
     if image_config:
         payload["image_config"] = image_config
+
+    # Enforce per-model request size limits (e.g. Sourceful's 4.5MB cap)
+    max_request_bytes = model_info.get("max_request_bytes")
+    if max_request_bytes:
+        payload_size = len(json.dumps(payload).encode())
+        if payload_size > max_request_bytes:
+            # Find and compress base64 images in the message content to fit
+            _compress_payload_images(payload, max_request_bytes)
 
     headers = _build_headers(api_key)
 

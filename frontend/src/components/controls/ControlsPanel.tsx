@@ -184,6 +184,7 @@ export function ControlsPanel() {
         {/* Advanced — collapsed by default */}
         <CollapsibleSection
           title="Advanced"
+          data-tour="advanced-section"
           storageKey="imagegen-section-advanced"
         >
           <VariationsControl />

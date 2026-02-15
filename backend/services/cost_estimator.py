@@ -18,11 +18,17 @@ RESOLUTION_MULTIPLIERS: dict[str, float] = {
 # For megapixel models, cost scales with resolution
 # For flat-rate models, cost is fixed regardless of resolution
 PRICING_TYPE: dict[str, str] = {
+    "black-forest-labs/flux.2-max": "megapixel",
+    "bytedance-seed/seedream-4.5": "flat",
     "google/gemini-2.5-flash-image": "token",
     "google/gemini-3-pro-image-preview": "token",
     "openai/gpt-5-image": "token",
-    "black-forest-labs/flux.2-max": "megapixel",
-    "bytedance-seed/seedream-4.5": "flat",
+    "sourceful/riverflow-v2-pro": "tiered",
+}
+
+# Exact per-resolution prices for tiered models (no multiplier math)
+TIERED_PRICING: dict[str, dict[str, float]] = {
+    "sourceful/riverflow-v2-pro": {"1K": 0.15, "2K": 0.15, "4K": 0.33},
 }
 
 
@@ -54,7 +60,12 @@ def estimate_cost(
             "pricing_type": pricing_type,
         }
 
-    if pricing_type == "flat":
+    if pricing_type == "tiered":
+        # Tiered: exact per-resolution prices (e.g. Riverflow V2 Pro)
+        tier = TIERED_PRICING.get(model_id, {})
+        cost = tier.get(resolution, tier.get("1K", base_cost or 0.15)) * variations
+        return {"estimated_cost": cost, "is_approximate": False, "pricing_type": pricing_type}
+    elif pricing_type == "flat":
         # Seedream: flat rate regardless of resolution
         cost = base_cost * variations
         return {"estimated_cost": cost, "is_approximate": False, "pricing_type": pricing_type}

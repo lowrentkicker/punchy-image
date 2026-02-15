@@ -10,6 +10,24 @@ IMAGEGEN_DIR = Path.home() / ".imagegen"
 CONFIG_PATH = IMAGEGEN_DIR / "config.json"
 
 MODELS: dict[str, dict[str, Any]] = {
+    "black-forest-labs/flux.2-max": {
+        "id": "black-forest-labs/flux.2-max",
+        "name": "Flux.2 Max",
+        "provider": "Black Forest Labs",
+        "type": "image_only",
+        "modalities": ["image"],
+        "strengths": "Top-tier image quality, prompt understanding, editing consistency",
+        "estimated_cost_1k": 0.07,
+    },
+    "bytedance-seed/seedream-4.5": {
+        "id": "bytedance-seed/seedream-4.5",
+        "name": "Seedream 4.5",
+        "provider": "ByteDance",
+        "type": "image_only",
+        "modalities": ["image"],
+        "strengths": "Subject detail preservation, portrait refinement, visual aesthetics",
+        "estimated_cost_1k": 0.04,
+    },
     "google/gemini-2.5-flash-image": {
         "id": "google/gemini-2.5-flash-image",
         "name": "Gemini 2.5 Flash",
@@ -37,23 +55,15 @@ MODELS: dict[str, dict[str, Any]] = {
         "strengths": "Strong instruction following, text rendering, detailed editing",
         "estimated_cost_1k": None,
     },
-    "black-forest-labs/flux.2-max": {
-        "id": "black-forest-labs/flux.2-max",
-        "name": "Flux.2 Max",
-        "provider": "Black Forest Labs",
+    "sourceful/riverflow-v2-pro": {
+        "id": "sourceful/riverflow-v2-pro",
+        "name": "Riverflow V2 Pro",
+        "provider": "Sourceful",
         "type": "image_only",
         "modalities": ["image"],
-        "strengths": "Top-tier image quality, prompt understanding, editing consistency",
-        "estimated_cost_1k": 0.07,
-    },
-    "bytedance-seed/seedream-4.5": {
-        "id": "bytedance-seed/seedream-4.5",
-        "name": "Seedream 4.5",
-        "provider": "ByteDance",
-        "type": "image_only",
-        "modalities": ["image"],
-        "strengths": "Subject detail preservation, portrait refinement, visual aesthetics",
-        "estimated_cost_1k": 0.04,
+        "strengths": "Top-tier control, perfect text rendering, integrated reasoning model",
+        "estimated_cost_1k": 0.15,
+        "max_request_bytes": 4_500_000,
     },
 }
 

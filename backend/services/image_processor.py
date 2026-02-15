@@ -108,6 +108,43 @@ def validate_and_process_upload(image_data: bytes) -> tuple[bytes, bool]:
     return buf.getvalue(), was_resized
 
 
+def compress_for_size_limit(image_data: bytes, max_base64_bytes: int) -> bytes:
+    """Iteratively compress an image until its base64 representation fits within max_base64_bytes.
+
+    Starts at quality 85 and steps down. Also resizes if quality alone isn't enough.
+    Returns JPEG bytes. Raises ValueError if it can't fit within the limit.
+    """
+    img = Image.open(io.BytesIO(image_data))
+    if img.mode == "RGBA":
+        bg = Image.new("RGB", img.size, (255, 255, 255))
+        bg.paste(img, mask=img.split()[3])
+        img = bg
+    elif img.mode not in ("RGB",):
+        img = img.convert("RGB")
+
+    for quality in (85, 70, 55, 40):
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=quality)
+        raw = buf.getvalue()
+        # base64 inflates by ~4/3
+        if len(raw) * 4 // 3 <= max_base64_bytes:
+            return raw
+
+    # If quality reduction alone isn't enough, also downscale
+    for scale in (0.75, 0.5):
+        scaled = img.resize(
+            (int(img.width * scale), int(img.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+        buf = io.BytesIO()
+        scaled.save(buf, "JPEG", quality=40)
+        raw = buf.getvalue()
+        if len(raw) * 4 // 3 <= max_base64_bytes:
+            return raw
+
+    raise ValueError("Image too large even after aggressive compression")
+
+
 def image_to_base64_url(image_data: bytes, mime_type: str = "image/jpeg") -> str:
     """Encode image bytes as a data URL for the OpenRouter API."""
     b64 = base64.b64encode(image_data).decode("ascii")

@@ -39,11 +39,20 @@ export const tourSteps: TourStep[] = [
     placement: 'left',
   },
   {
-    id: 'aspect-resolution',
-    title: 'Size & Format',
+    id: 'aspect-ratio',
+    title: 'Aspect Ratio',
     content:
-      'Set the aspect ratio and resolution for your image. Higher resolutions produce more detail but cost more.',
+      'Choose the shape of your image — square, landscape, portrait, or ultrawide.',
     targetSelector: '[data-tour="aspect-resolution"]',
+    spotlightPadding: 8,
+    placement: 'left',
+  },
+  {
+    id: 'resolution',
+    title: 'Resolution',
+    content:
+      'Pick 1K for fast drafts, 2K for quality, or 4K for maximum detail. Higher resolutions cost more.',
+    targetSelector: '[data-tour="resolution"]',
     spotlightPadding: 8,
     placement: 'left',
   },
@@ -66,6 +75,15 @@ export const tourSteps: TourStep[] = [
     placement: 'left',
   },
   {
+    id: 'advanced-section',
+    title: 'Advanced Options',
+    content:
+      'Expand this section to find batch variations, negative prompts, subject lock, and export format settings.',
+    targetSelector: '[data-tour="advanced-section"]',
+    spotlightPadding: 8,
+    placement: 'left',
+  },
+  {
     id: 'generate-button',
     title: 'Generate',
     content:
@@ -73,6 +91,15 @@ export const tourSteps: TourStep[] = [
     targetSelector: '[data-tour="generate-button"]',
     spotlightPadding: 12,
     placement: 'top',
+  },
+  {
+    id: 'conversation-editing',
+    title: 'Conversation Editing',
+    content:
+      'When you use a conversational model (marked "Chat"), a chat panel appears after generating. You can refine your image through back-and-forth dialogue — adjusting details, changing elements, or branching into alternate versions.',
+    targetSelector: null,
+    spotlightPadding: 0,
+    placement: 'center',
   },
   {
     id: 'explore-more',
