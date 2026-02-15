@@ -8,7 +8,7 @@ import type { GenerationResult } from '../../types';
 
 export function ImageCanvas() {
   const { state, dispatch } = useAppContext();
-  const { currentGeneration, batchResults, isGenerating, exportFormat, exportQuality } = state;
+  const { currentGeneration, batchResults, isGenerating, exportFormat, exportQuality, exportDpi } = state;
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const formatLabel = exportFormat.toUpperCase();
@@ -16,7 +16,7 @@ export function ImageCanvas() {
   const handleDownload = (imageId?: string) => {
     const id = imageId ?? currentGeneration?.image_id;
     if (!id) return;
-    const url = api.getExportUrl(id, exportFormat, exportQuality);
+    const url = api.getExportUrl(id, exportFormat, exportQuality, exportDpi);
     const a = document.createElement('a');
     a.href = url;
     a.download = '';

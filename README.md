@@ -38,7 +38,7 @@ A local desktop web application for generating images from natural language usin
 - **Projects** — organize generations into separate workspaces
 - **Prompt templates** — built-in and user-created templates for common workflows
 - **Generation history** — browse, reuse, download, or delete past generations
-- **Export** — PNG, JPEG, or WebP with adjustable quality (clean files, no embedded metadata)
+- **Export** — PNG, JPEG, or WebP with adjustable quality and DPI (72/150/300)
 - **Guided feature tour** — spotlight-based onboarding walkthrough with 11 interactive steps
 
 ### Cost Management
@@ -213,7 +213,7 @@ All JSON files use atomic writes (write to temp file, then rename) to prevent co
 
 - The OpenRouter API key is stored only in `~/.imagegen/config.json` and is never sent to the frontend, included in API responses, or logged
 - The server binds to `localhost` only — it is not accessible from other machines on the network
-- Exported images contain no metadata (no EXIF, no prompt data)
+- Exported images contain no identifying metadata (no EXIF, no prompt data). Only DPI is embedded when explicitly set by the user.
 - All error logs automatically redact the API key
 
 ---

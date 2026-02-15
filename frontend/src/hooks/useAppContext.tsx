@@ -60,6 +60,7 @@ export type Action =
   | { type: 'SET_MODEL_RECOMMENDATION'; recommendation: ModelRecommendation | null }
   | { type: 'SET_EXPORT_FORMAT'; format: 'png' | 'jpeg' | 'webp' }
   | { type: 'SET_EXPORT_QUALITY'; quality: number }
+  | { type: 'SET_EXPORT_DPI'; dpi: number }
   // Phase 4
   | { type: 'SET_CONVERSATION_SESSION'; session: ConversationSession | null }
   | { type: 'DISMISS_CHAT_PANEL' }
@@ -116,6 +117,7 @@ const initialState: AppState = {
   modelRecommendation: null,
   exportFormat: 'png',
   exportQuality: 90,
+  exportDpi: 72,
   // Phase 4
   conversationSession: null,
   chatPanelDismissed: false,
@@ -234,6 +236,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, exportFormat: action.format };
     case 'SET_EXPORT_QUALITY':
       return { ...state, exportQuality: action.quality };
+    case 'SET_EXPORT_DPI':
+      return { ...state, exportDpi: action.dpi };
     // Phase 4
     case 'SET_CONVERSATION_SESSION':
       return { ...state, conversationSession: action.session };
@@ -295,6 +299,7 @@ function reducer(state: AppState, action: Action): AppState {
         modelRecommendation: initialState.modelRecommendation,
         exportFormat: initialState.exportFormat,
         exportQuality: initialState.exportQuality,
+        exportDpi: initialState.exportDpi,
         conversationSession: initialState.conversationSession,
         chatPanelDismissed: initialState.chatPanelDismissed,
         isMaskMode: initialState.isMaskMode,

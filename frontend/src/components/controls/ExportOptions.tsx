@@ -6,6 +6,12 @@ const FORMATS = [
   { value: 'webp', label: 'WebP' },
 ] as const;
 
+const DPI_PRESETS = [
+  { value: 72, label: '72', description: 'Screen' },
+  { value: 150, label: '150', description: 'Web Print' },
+  { value: 300, label: '300', description: 'Print' },
+] as const;
+
 export function ExportOptions() {
   const { state, dispatch } = useAppContext();
   const showQuality = state.exportFormat !== 'png';
@@ -49,6 +55,28 @@ export function ExportOptions() {
           />
         </div>
       )}
+
+      <div className="mt-2">
+        <label className="mb-1.5 block text-xs font-medium text-[--text-secondary]">
+          DPI
+        </label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {DPI_PRESETS.map(({ value, label, description }) => (
+            <button
+              key={value}
+              onClick={() => dispatch({ type: 'SET_EXPORT_DPI', dpi: value })}
+              className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors duration-150 ${
+                state.exportDpi === value
+                  ? 'bg-accent text-[#0A0A0A]'
+                  : 'bg-surface-2 text-[--text-secondary] hover:text-[--text-primary] hover:bg-surface-3'
+              }`}
+              title={description}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

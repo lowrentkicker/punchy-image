@@ -367,6 +367,7 @@ async def export_image(
     image_id: str,
     fmt: str = Query(default="png", alias="format"),
     quality: int = Query(default=90, ge=1, le=100),
+    dpi: int | None = Query(default=None, ge=72, le=600),
 ) -> Response:
     image_path = get_images_dir() / f"{image_id}.png"
     if not image_path.exists():
@@ -375,7 +376,7 @@ async def export_image(
     if fmt not in EXPORT_MIME_TYPES:
         fmt = "png"
 
-    clean_bytes = prepare_for_export(image_path, fmt=fmt, quality=quality)
+    clean_bytes = prepare_for_export(image_path, fmt=fmt, quality=quality, dpi=dpi)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     ext = fmt if fmt != "jpeg" else "jpg"
     filename = f"imagegen_{timestamp}.{ext}"

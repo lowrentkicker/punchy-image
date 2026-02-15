@@ -257,6 +257,7 @@ export interface AppState {
   modelRecommendation: ModelRecommendation | null;
   exportFormat: 'png' | 'jpeg' | 'webp';
   exportQuality: number;
+  exportDpi: number;
   // Phase 4
   conversationSession: ConversationSession | null;
   chatPanelDismissed: boolean;

@@ -152,9 +152,10 @@ export const api = {
     }),
 
   // Export — supports format and quality
-  getExportUrl: (image_id: string, format: string = 'png', quality: number = 90) => {
+  getExportUrl: (image_id: string, format: string = 'png', quality: number = 90, dpi: number = 72) => {
     const params = new URLSearchParams({ format });
     if (format !== 'png') params.set('quality', String(quality));
+    if (dpi !== 72) params.set('dpi', String(dpi));
     return `${BASE_URL}/export/${image_id}?${params}`;
   },
 

@@ -41,13 +41,17 @@ def prepare_for_export(
     source_path: Path,
     fmt: str = "png",
     quality: int = 90,
+    dpi: int | None = None,
 ) -> bytes:
-    """Read an image and return clean bytes in the specified format with no metadata.
+    """Read an image and return clean bytes in the specified format.
+
+    Metadata is stripped except for DPI when explicitly provided.
 
     Args:
         source_path: Path to the source image file.
         fmt: Output format — "png", "jpeg", or "webp".
         quality: Quality for JPEG/WebP (1-100). Ignored for PNG.
+        dpi: Resolution in dots per inch. When set, embeds DPI metadata for print workflows.
     """
     img = Image.open(source_path)
 
@@ -60,15 +64,19 @@ def prepare_for_export(
     clean = Image.new(img.mode, img.size)
     clean.putdata(list(img.getdata()))
 
+    save_kwargs: dict[str, object] = {}
+    if dpi is not None:
+        save_kwargs["dpi"] = (dpi, dpi)
+
     buf = io.BytesIO()
     if fmt == "png":
-        clean.save(buf, "PNG")
+        clean.save(buf, "PNG", **save_kwargs)
     elif fmt == "jpeg":
-        clean.save(buf, "JPEG", quality=quality)
+        clean.save(buf, "JPEG", quality=quality, **save_kwargs)
     elif fmt == "webp":
-        clean.save(buf, "WEBP", quality=quality)
+        clean.save(buf, "WEBP", quality=quality, **save_kwargs)
     else:
-        clean.save(buf, "PNG")
+        clean.save(buf, "PNG", **save_kwargs)
 
     return buf.getvalue()
 
