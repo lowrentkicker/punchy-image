@@ -76,7 +76,8 @@ export type Action =
   | { type: 'SET_ONLINE_STATUS'; online: boolean }
   | { type: 'SET_FALLBACK_SUGGESTION'; suggestion: FallbackSuggestion | null }
   | { type: 'SET_STORAGE_WARNING'; level: null | 'warning' | 'critical' }
-  | { type: 'SET_SPEND_LIMIT_WARNING'; warning: boolean };
+  | { type: 'SET_SPEND_LIMIT_WARNING'; warning: boolean }
+  | { type: 'RESET_WORKSPACE' };
 
 const initialState: AppState = {
   apiKeyConfigured: null,
@@ -261,6 +262,38 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, storageWarningLevel: action.level };
     case 'SET_SPEND_LIMIT_WARNING':
       return { ...state, spendLimitWarning: action.warning };
+    case 'RESET_WORKSPACE':
+      return {
+        ...state,
+        prompt: initialState.prompt,
+        currentGeneration: initialState.currentGeneration,
+        batchResults: initialState.batchResults,
+        batchTotalRequested: initialState.batchTotalRequested,
+        error: initialState.error,
+        requestId: initialState.requestId,
+        isGenerating: initialState.isGenerating,
+        aspectRatio: initialState.aspectRatio,
+        resolution: initialState.resolution,
+        stylePreset: initialState.stylePreset,
+        negativePrompt: initialState.negativePrompt,
+        referenceImage: initialState.referenceImage,
+        costEstimate: initialState.costEstimate,
+        imageWeight: initialState.imageWeight,
+        styleReference: initialState.styleReference,
+        characterReferences: initialState.characterReferences,
+        variations: initialState.variations,
+        multiModel: initialState.multiModel,
+        selectedModelIds: initialState.selectedModelIds,
+        modelRecommendation: initialState.modelRecommendation,
+        exportFormat: initialState.exportFormat,
+        exportQuality: initialState.exportQuality,
+        conversationSession: initialState.conversationSession,
+        chatPanelDismissed: initialState.chatPanelDismissed,
+        isMaskMode: initialState.isMaskMode,
+        subjectLocked: initialState.subjectLocked,
+        subjectLockImageId: initialState.subjectLockImageId,
+        fallbackSuggestion: initialState.fallbackSuggestion,
+      };
     default:
       return state;
   }

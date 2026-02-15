@@ -15,6 +15,7 @@ import { VariationsControl } from './VariationsControl';
 import { ExportOptions } from './ExportOptions';
 import { SubjectLockToggle } from './SubjectLockToggle';
 import { CostEstimateDisplay } from './CostEstimateDisplay';
+import { CollapsibleSection } from './CollapsibleSection';
 import { useGenerate } from '../../hooks/useGenerate';
 import { useAppContext } from '../../hooks/useAppContext';
 
@@ -39,6 +40,18 @@ export function ControlsPanel() {
   const setPrompt = (value: string) => dispatch({ type: 'SET_PROMPT', prompt: value });
   const { generate, cancel, isGenerating } = useGenerate();
   const collapsed = state.controlsCollapsed;
+
+  // References section: auto-expand when images are present, manual toggle otherwise
+  const hasReferenceContent = !!(
+    state.referenceImage ||
+    state.styleReference ||
+    state.characterReferences.length > 0
+  );
+  const referenceCount =
+    (state.referenceImage ? 1 : 0) +
+    (state.styleReference ? 1 : 0) +
+    state.characterReferences.length;
+  const [refsManualOpen, setRefsManualOpen] = useState(false);
 
   const [width, setWidth] = useState<number | null>(getStoredWidth);
   const dragging = useRef(false);
@@ -140,6 +153,7 @@ export function ControlsPanel() {
           isGenerating ? 'opacity-50 pointer-events-none' : ''
         }`}
       >
+        {/* Always visible — core generation controls */}
         <PromptInput
           value={prompt}
           onChange={setPrompt}
@@ -151,14 +165,31 @@ export function ControlsPanel() {
         <StylePresetSelector />
         <AspectRatioSelector />
         <ResolutionSelector />
-        <VariationsControl />
-        <ReferenceUpload />
-        <StyleReferenceUpload />
-        <CharacterReferenceUpload />
-        <ImageWeightSlider />
-        <SubjectLockToggle />
-        <NegativePrompt />
-        <ExportOptions />
+
+        {/* References — collapsed by default, auto-expands when images present */}
+        <CollapsibleSection
+          title="References"
+          storageKey="imagegen-section-references"
+          expanded={hasReferenceContent || refsManualOpen}
+          onToggle={setRefsManualOpen}
+          badge={referenceCount || undefined}
+        >
+          <ReferenceUpload />
+          <StyleReferenceUpload />
+          <CharacterReferenceUpload />
+          <ImageWeightSlider />
+        </CollapsibleSection>
+
+        {/* Advanced — collapsed by default */}
+        <CollapsibleSection
+          title="Advanced"
+          storageKey="imagegen-section-advanced"
+        >
+          <VariationsControl />
+          <SubjectLockToggle />
+          <NegativePrompt />
+          <ExportOptions />
+        </CollapsibleSection>
       </div>
 
       {/* Pinned footer: cost estimate + generate */}
@@ -170,6 +201,14 @@ export function ControlsPanel() {
           onCancel={cancel}
           disabled={!prompt.trim() || !state.selectedModelId}
         />
+        {(prompt.trim() || state.currentGeneration) && !isGenerating && (
+          <button
+            onClick={() => dispatch({ type: 'RESET_WORKSPACE' })}
+            className="w-full py-1.5 text-xs text-[--text-tertiary] hover:text-[--text-secondary] transition-colors duration-150"
+          >
+            New Image
+          </button>
+        )}
       </div>
     </div>
   );
