@@ -30,3 +30,8 @@ Thumbs.db
 .env.local
 
 # Application data (stored in ~/.imagegen/)
+
+# Project reference files
+UI_DESIGN_DIRECTION.md
+CLAUDE.md
+UI_examples/
