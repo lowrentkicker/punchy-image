@@ -11,8 +11,12 @@ IMAGEGEN_DIR = Path.home() / ".imagegen"
 def atomic_write(path: Path, data: str) -> None:
     """Write data to a file atomically using write-to-temp-then-rename."""
     tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(data, encoding="utf-8")
-    os.replace(str(tmp_path), str(path))
+    try:
+        tmp_path.write_text(data, encoding="utf-8")
+        os.replace(str(tmp_path), str(path))
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def atomic_write_json(path: Path, data: Any) -> None:

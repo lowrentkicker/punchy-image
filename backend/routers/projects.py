@@ -1,5 +1,6 @@
 """Project management endpoints: CRUD, switch, export, import."""
 
+import re
 import shutil
 import uuid
 import zipfile
@@ -9,6 +10,9 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+
+MAX_ZIP_SIZE = 500 * 1024 * 1024  # 500 MB
+MAX_ZIP_ENTRIES = 10_000
 
 from backend.config import get_config, save_config
 from backend.models.project import (
@@ -75,7 +79,9 @@ async def create_project(request: CreateProjectRequest) -> ProjectInfo:
     if not name:
         raise HTTPException(status_code=400, detail="Project name cannot be empty")
 
-    project_id = name.lower().replace(" ", "-")
+    project_id = re.sub(r"[^a-z0-9_-]", "", name.lower().replace(" ", "-"))
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Project name must contain at least one alphanumeric character")
     # Ensure unique
     existing = list_projects()
     if project_id in existing:
@@ -174,11 +180,17 @@ async def export_project(project_id: str) -> StreamingResponse:
         raise HTTPException(status_code=404, detail="Project not found")
 
     buf = BytesIO()
+    resolved_root = project_dir.resolve()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for file_path in project_dir.rglob("*"):
-            if file_path.is_file():
-                arcname = file_path.relative_to(project_dir)
-                zf.write(file_path, arcname)
+            if file_path.is_symlink():
+                continue
+            if not file_path.is_file():
+                continue
+            if not str(file_path.resolve()).startswith(str(resolved_root)):
+                continue
+            arcname = file_path.relative_to(project_dir)
+            zf.write(file_path, arcname)
     buf.seek(0)
 
     return StreamingResponse(
@@ -194,19 +206,34 @@ async def import_project(file: UploadFile) -> ProjectInfo:
         raise HTTPException(status_code=400, detail="File must be a ZIP archive")
 
     raw = await file.read()
+    if len(raw) > MAX_ZIP_SIZE:
+        raise HTTPException(status_code=413, detail=f"ZIP file exceeds {MAX_ZIP_SIZE // (1024 * 1024)}MB limit")
+
     buf = BytesIO(raw)
 
     # Derive project name from zip filename
     base_name = Path(file.filename).stem
-    project_id = base_name.lower().replace(" ", "-")
+    project_id = re.sub(r"[^a-z0-9_-]", "", base_name.lower().replace(" ", "-"))
+    if not project_id:
+        project_id = f"import-{uuid.uuid4().hex[:6]}"
     existing = list_projects()
     if project_id in existing:
         project_id = f"{project_id}-{uuid.uuid4().hex[:6]}"
 
     project_dir = get_project_dir(project_id)
     project_dir.mkdir(parents=True, exist_ok=True)
+    resolved_root = project_dir.resolve()
 
     with zipfile.ZipFile(buf, "r") as zf:
+        members = zf.namelist()
+        if len(members) > MAX_ZIP_ENTRIES:
+            shutil.rmtree(project_dir, ignore_errors=True)
+            raise HTTPException(status_code=400, detail=f"ZIP contains too many entries (max {MAX_ZIP_ENTRIES})")
+        for member in members:
+            member_path = (project_dir / member).resolve()
+            if not str(member_path).startswith(str(resolved_root)):
+                shutil.rmtree(project_dir, ignore_errors=True)
+                raise HTTPException(status_code=400, detail="ZIP contains invalid path traversal entries")
         zf.extractall(project_dir)
 
     _ensure_project_dirs(project_dir)

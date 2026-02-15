@@ -1,7 +1,6 @@
 """Multi-turn conversational editing, mask editing, composition, and enhancement endpoints."""
 
 import asyncio
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
@@ -35,10 +34,10 @@ from backend.services.conversation import (
     switch_branch,
     undo_turn,
 )
+from backend.services.history import add_history_entry
 from backend.services.image_processor import (
-    generate_thumbnail,
     image_to_base64_url,
-    save_image,
+    save_generation_result,
 )
 from backend.services.mask_processor import (
     build_mask_prompt,
@@ -47,10 +46,10 @@ from backend.services.mask_processor import (
     image_to_base64_data_url,
 )
 from backend.services.openrouter import OpenRouterError, generate_image
-from backend.services.prompt_builder import build_prompt
-from backend.utils.logging import log_error
+from backend.services.prompt_builder import build_image_weight_instruction, build_prompt
+from backend.services.reference_store import get_reference
+from backend.utils.api_errors import openrouter_error_to_http, unexpected_error_to_http
 from backend.utils.storage import (
-    atomic_write_json,
     get_images_dir,
     get_project_dir,
     get_thumbnails_dir,
@@ -59,28 +58,54 @@ from backend.utils.storage import (
 
 router = APIRouter(tags=["conversation"])
 
-# In-memory store for reference images (shared with generate router)
-from backend.routers.generate import _reference_images
+
+def _require_api_key() -> None:
+    if not get_api_key():
+        raise HTTPException(
+            status_code=400,
+            detail={"error_type": "auth", "message": "No API key configured"},
+        )
+
+
+def _require_model(model_id: str) -> None:
+    if model_id not in MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_type": "server", "message": f"Unknown model: {model_id}"},
+        )
+
+
+def _require_session(session_id: str) -> ConversationSession:
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail={"error_type": "server", "message": "Session not found"},
+        )
+    return session
+
+
+def _build_image_urls(image_id: str) -> tuple[str, str]:
+    """Return (image_url, thumbnail_url) for a given image_id."""
+    return (
+        f"/api/images/default/{image_id}.png",
+        f"/api/images/default/thumbnails/{image_id}_thumb.png",
+    )
 
 
 # ── Conversation Session CRUD ───────────────────────────────────────────
 
 @router.post("/conversation/sessions", response_model=ConversationSession)
 async def create_conversation_session(request: CreateSessionRequest) -> ConversationSession:
-    if not get_api_key():
-        raise HTTPException(status_code=400, detail="No API key configured")
-    if request.model_id not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_id}")
+    _require_api_key()
+    _require_model(request.model_id)
     session = create_session(request.model_id)
 
     # Seed session with original generation context so the model knows what to edit
     if request.initial_prompt:
         add_turn(session, prompt=request.initial_prompt, role="user")
     if request.initial_image_id:
-        image_filename = f"{request.initial_image_id}.png"
-        thumbnail_filename = f"{request.initial_image_id}_thumb.png"
-        image_url = f"/api/images/default/{image_filename}"
-        thumbnail_url = f"/api/images/default/thumbnails/{thumbnail_filename}"
+        image_url, thumbnail_url = _build_image_urls(request.initial_image_id)
         add_turn(
             session,
             prompt=None,
@@ -100,17 +125,17 @@ async def list_conversation_sessions() -> list[ConversationSessionSummary]:
 
 @router.get("/conversation/sessions/{session_id}", response_model=ConversationSession)
 async def get_conversation_session(session_id: str) -> ConversationSession:
-    session = load_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return session
+    return _require_session(session_id)
 
 
 @router.delete("/conversation/sessions/{session_id}")
 async def delete_conversation_session(session_id: str) -> dict:
     if delete_session(session_id):
         return {"deleted": True}
-    raise HTTPException(status_code=404, detail="Session not found")
+    raise HTTPException(
+        status_code=404,
+        detail={"error_type": "server", "message": "Session not found"},
+    )
 
 
 # ── Conversational Editing ──────────────────────────────────────────────
@@ -118,17 +143,11 @@ async def delete_conversation_session(session_id: str) -> dict:
 @router.post("/conversation/edit", response_model=GenerateResponse)
 async def conversation_edit(request: ConversationEditRequest) -> GenerateResponse:
     """Send a conversational editing turn within a session."""
-    if not get_api_key():
-        raise HTTPException(status_code=400, detail="No API key configured")
+    _require_api_key()
 
-    session = load_session(request.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
+    session = _require_session(request.session_id)
     model_id = request.model_id or session.model_id
-
-    if model_id not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {model_id}")
+    _require_model(model_id)
 
     # Build prompt with modifiers
     final_prompt = build_prompt(
@@ -182,19 +201,11 @@ async def conversation_edit(request: ConversationEditRequest) -> GenerateRespons
         )
 
         # Save image and thumbnail
-        image_id = str(uuid.uuid4())
-        image_filename = f"{image_id}.png"
-        thumbnail_filename = f"{image_id}_thumb.png"
-
-        image_path = get_images_dir() / image_filename
-        thumbnail_path = get_thumbnails_dir() / thumbnail_filename
-
-        save_image(result["image_data"], image_path)
-        generate_thumbnail(image_path, thumbnail_path)
-
+        image_id, image_filename, thumbnail_filename = save_generation_result(
+            result["image_data"], get_images_dir(), get_thumbnails_dir(),
+        )
+        image_url, thumbnail_url = _build_image_urls(image_id)
         timestamp = datetime.now(timezone.utc).isoformat()
-        image_url = f"/api/images/default/{image_filename}"
-        thumbnail_url = f"/api/images/default/thumbnails/{thumbnail_filename}"
 
         # Add assistant turn with generated image
         add_turn(
@@ -209,23 +220,15 @@ async def conversation_edit(request: ConversationEditRequest) -> GenerateRespons
         )
 
         # Also add to global history
-        history_entry = {
-            "image_id": image_id,
-            "image_filename": image_filename,
-            "thumbnail_filename": thumbnail_filename,
-            "prompt": request.prompt,
-            "model_id": model_id,
-            "timestamp": timestamp,
-            "text_response": result.get("text_response"),
-            "usage": result.get("usage"),
-            "session_id": request.session_id,
-        }
-        history_path = get_project_dir() / "history.json"
-        history = read_json(history_path)
-        if not isinstance(history, list):
-            history = []
-        history.append(history_entry)
-        atomic_write_json(history_path, history)
+        add_history_entry(
+            image_id=image_id,
+            image_filename=image_filename,
+            thumbnail_filename=thumbnail_filename,
+            prompt=request.prompt,
+            model_id=model_id,
+            result=result,
+            session_id=request.session_id,
+        )
 
         return GenerateResponse(
             image_id=image_id,
@@ -239,29 +242,21 @@ async def conversation_edit(request: ConversationEditRequest) -> GenerateRespons
         )
 
     except OpenRouterError as e:
-        log_error(f"Conversation edit failed: {e.error_type} - {e.message}")
         # Remove the user turn we added since generation failed
         undo_turn(session)
-        raise HTTPException(
-            status_code=422,
-            detail={"error_type": e.error_type, "message": e.message, "retry_after": e.retry_after},
-        )
+        raise openrouter_error_to_http(e, "Conversation edit failed")
+    except HTTPException:
+        raise
     except Exception as e:
-        log_error(f"Unexpected conversation error: {e}", e)
         undo_turn(session)
-        raise HTTPException(
-            status_code=500,
-            detail={"error_type": "server", "message": "An unexpected error occurred."},
-        )
+        raise unexpected_error_to_http(e, "conversation")
 
 
 # ── Session Controls ────────────────────────────────────────────────────
 
 @router.post("/conversation/undo/{session_id}")
 async def undo_last_turn(session_id: str) -> dict:
-    session = load_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = _require_session(session_id)
     if undo_turn(session):
         return {"undone": True}
     return {"undone": False, "message": "No turns to undo"}
@@ -269,9 +264,7 @@ async def undo_last_turn(session_id: str) -> dict:
 
 @router.post("/conversation/revert")
 async def revert_session(request: RevertRequest) -> dict:
-    session = load_session(request.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = _require_session(request.session_id)
     if revert_to_turn(session, request.turn_index):
         return {"reverted": True, "turn_index": request.turn_index}
     return {"reverted": False, "message": "Invalid turn index"}
@@ -279,9 +272,7 @@ async def revert_session(request: RevertRequest) -> dict:
 
 @router.post("/conversation/branch")
 async def create_branch(request: BranchRequest) -> dict:
-    session = load_session(request.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = _require_session(request.session_id)
     try:
         new_branch = branch_from_turn(session, request.turn_index)
         return {"branch_id": new_branch.branch_id, "name": new_branch.name}
@@ -291,9 +282,7 @@ async def create_branch(request: BranchRequest) -> dict:
 
 @router.post("/conversation/switch-branch/{session_id}/{branch_id}")
 async def switch_session_branch(session_id: str, branch_id: str) -> dict:
-    session = load_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = _require_session(session_id)
     if switch_branch(session, branch_id):
         return {"switched": True, "branch_id": branch_id}
     return {"switched": False, "message": "Branch not found"}
@@ -301,18 +290,14 @@ async def switch_session_branch(session_id: str, branch_id: str) -> dict:
 
 @router.post("/conversation/subject-lock")
 async def toggle_subject_lock(request: SubjectLockRequest) -> dict:
-    session = load_session(request.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = _require_session(request.session_id)
     set_subject_lock(session, request.locked, request.image_id)
     return {"locked": request.locked}
 
 
 @router.get("/conversation/token-usage/{session_id}")
 async def get_token_usage(session_id: str) -> dict:
-    session = load_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = _require_session(session_id)
     return estimate_token_usage(session)
 
 
@@ -321,15 +306,15 @@ async def get_token_usage(session_id: str) -> dict:
 @router.post("/mask-edit", response_model=GenerateResponse)
 async def mask_edit(request: MaskEditRequest) -> GenerateResponse:
     """Edit a masked region of an image."""
-    if not get_api_key():
-        raise HTTPException(status_code=400, detail="No API key configured")
-
-    if request.model_id not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_id}")
+    _require_api_key()
+    _require_model(request.model_id)
 
     source_path = get_images_dir() / f"{request.image_id}.png"
     if not source_path.exists():
-        raise HTTPException(status_code=404, detail="Source image not found")
+        raise HTTPException(
+            status_code=404,
+            detail={"error_type": "server", "message": "Source image not found"},
+        )
 
     # Decode mask
     mask_image = decode_mask(request.mask.mask_image_base64)
@@ -369,39 +354,22 @@ async def mask_edit(request: MaskEditRequest) -> GenerateResponse:
             conversation_history=conversation_history,
         )
 
-        image_id = str(uuid.uuid4())
-        image_filename = f"{image_id}.png"
-        thumbnail_filename = f"{image_id}_thumb.png"
-
-        img_path = get_images_dir() / image_filename
-        thumb_path = get_thumbnails_dir() / thumbnail_filename
-
-        save_image(result["image_data"], img_path)
-        generate_thumbnail(img_path, thumb_path)
-
+        image_id, image_filename, thumbnail_filename = save_generation_result(
+            result["image_data"], get_images_dir(), get_thumbnails_dir(),
+        )
+        image_url, thumbnail_url = _build_image_urls(image_id)
         timestamp = datetime.now(timezone.utc).isoformat()
-        image_url = f"/api/images/default/{image_filename}"
-        thumbnail_url = f"/api/images/default/thumbnails/{thumbnail_filename}"
 
-        # Add to history
-        history_entry = {
-            "image_id": image_id,
-            "image_filename": image_filename,
-            "thumbnail_filename": thumbnail_filename,
-            "prompt": request.prompt,
-            "model_id": request.model_id,
-            "timestamp": timestamp,
-            "text_response": result.get("text_response"),
-            "usage": result.get("usage"),
-            "source_image_id": request.image_id,
-            "edit_type": "mask",
-        }
-        history_path = get_project_dir() / "history.json"
-        history = read_json(history_path)
-        if not isinstance(history, list):
-            history = []
-        history.append(history_entry)
-        atomic_write_json(history_path, history)
+        add_history_entry(
+            image_id=image_id,
+            image_filename=image_filename,
+            thumbnail_filename=thumbnail_filename,
+            prompt=request.prompt,
+            model_id=request.model_id,
+            result=result,
+            source_image_id=request.image_id,
+            edit_type="mask",
+        )
 
         # If in a conversation session, add the turn
         if request.session_id:
@@ -427,17 +395,11 @@ async def mask_edit(request: MaskEditRequest) -> GenerateResponse:
         )
 
     except OpenRouterError as e:
-        log_error(f"Mask edit failed: {e.error_type} - {e.message}")
-        raise HTTPException(
-            status_code=422,
-            detail={"error_type": e.error_type, "message": e.message, "retry_after": e.retry_after},
-        )
+        raise openrouter_error_to_http(e, "Mask edit failed")
+    except HTTPException:
+        raise
     except Exception as e:
-        log_error(f"Unexpected mask edit error: {e}", e)
-        raise HTTPException(
-            status_code=500,
-            detail={"error_type": "server", "message": "An unexpected error occurred."},
-        )
+        raise unexpected_error_to_http(e, "mask edit")
 
 
 # ── Multi-Image Composition ────────────────────────────────────────────
@@ -445,14 +407,14 @@ async def mask_edit(request: MaskEditRequest) -> GenerateResponse:
 @router.post("/compose", response_model=GenerateResponse)
 async def compose_images(request: ComposeRequest) -> GenerateResponse:
     """Combine multiple source images into a single output."""
-    if not get_api_key():
-        raise HTTPException(status_code=400, detail="No API key configured")
-
-    if request.model_id not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_id}")
+    _require_api_key()
+    _require_model(request.model_id)
 
     if len(request.source_images) < 2 or len(request.source_images) > 5:
-        raise HTTPException(status_code=400, detail="Provide 2-5 source images")
+        raise HTTPException(
+            status_code=400,
+            detail={"error_type": "server", "message": "Provide 2-5 source images"},
+        )
 
     # Build composition prompt with labels
     label_parts = []
@@ -461,14 +423,17 @@ async def compose_images(request: ComposeRequest) -> GenerateResponse:
         ref_id = src.get("reference_id")
         label = src.get("label", "")
         if ref_id:
-            url = _reference_images.get(ref_id)
+            url = get_reference(ref_id)
             if url:
                 image_urls.append(url)
                 if label:
                     label_parts.append(f"Image labeled '{label}'")
 
     if not image_urls:
-        raise HTTPException(status_code=400, detail="No valid source images found")
+        raise HTTPException(
+            status_code=400,
+            detail={"error_type": "server", "message": "No valid source images found"},
+        )
 
     compose_instruction = "Compose the provided images into a single cohesive image."
     if label_parts:
@@ -477,8 +442,7 @@ async def compose_images(request: ComposeRequest) -> GenerateResponse:
     final_prompt = f"{compose_instruction} {request.prompt}"
 
     if request.image_weight is not None:
-        from backend.services.prompt_builder import _build_image_weight_instruction
-        weight_instruction = _build_image_weight_instruction(request.image_weight, request.model_id)
+        weight_instruction = build_image_weight_instruction(request.image_weight, request.model_id)
         final_prompt += f". {weight_instruction}"
 
     cancel_event = asyncio.Event()
@@ -493,42 +457,27 @@ async def compose_images(request: ComposeRequest) -> GenerateResponse:
             resolution=request.resolution,
         )
 
-        image_id = str(uuid.uuid4())
-        image_filename = f"{image_id}.png"
-        thumbnail_filename = f"{image_id}_thumb.png"
-
-        img_path = get_images_dir() / image_filename
-        thumb_path = get_thumbnails_dir() / thumbnail_filename
-
-        save_image(result["image_data"], img_path)
-        generate_thumbnail(img_path, thumb_path)
-
+        image_id, image_filename, thumbnail_filename = save_generation_result(
+            result["image_data"], get_images_dir(), get_thumbnails_dir(),
+        )
         timestamp = datetime.now(timezone.utc).isoformat()
 
-        # Add to history with composition metadata
-        history_entry = {
-            "image_id": image_id,
-            "image_filename": image_filename,
-            "thumbnail_filename": thumbnail_filename,
-            "prompt": request.prompt,
-            "model_id": request.model_id,
-            "timestamp": timestamp,
-            "text_response": result.get("text_response"),
-            "usage": result.get("usage"),
-            "edit_type": "compose",
-            "source_count": len(request.source_images),
-        }
-        history_path = get_project_dir() / "history.json"
-        history = read_json(history_path)
-        if not isinstance(history, list):
-            history = []
-        history.append(history_entry)
-        atomic_write_json(history_path, history)
+        add_history_entry(
+            image_id=image_id,
+            image_filename=image_filename,
+            thumbnail_filename=thumbnail_filename,
+            prompt=request.prompt,
+            model_id=request.model_id,
+            result=result,
+            edit_type="compose",
+            source_count=len(request.source_images),
+        )
 
+        image_url, thumbnail_url = _build_image_urls(image_id)
         return GenerateResponse(
             image_id=image_id,
-            image_url=f"/api/images/default/{image_filename}",
-            thumbnail_url=f"/api/images/default/thumbnails/{thumbnail_filename}",
+            image_url=image_url,
+            thumbnail_url=thumbnail_url,
             text_response=result.get("text_response"),
             model_id=request.model_id,
             prompt=request.prompt,
@@ -537,17 +486,11 @@ async def compose_images(request: ComposeRequest) -> GenerateResponse:
         )
 
     except OpenRouterError as e:
-        log_error(f"Composition failed: {e.error_type} - {e.message}")
-        raise HTTPException(
-            status_code=422,
-            detail={"error_type": e.error_type, "message": e.message, "retry_after": e.retry_after},
-        )
+        raise openrouter_error_to_http(e, "Composition failed")
+    except HTTPException:
+        raise
     except Exception as e:
-        log_error(f"Unexpected composition error: {e}", e)
-        raise HTTPException(
-            status_code=500,
-            detail={"error_type": "server", "message": "An unexpected error occurred."},
-        )
+        raise unexpected_error_to_http(e, "composition")
 
 
 # ── Super Resolution / Enhancement ─────────────────────────────────────
@@ -555,17 +498,18 @@ async def compose_images(request: ComposeRequest) -> GenerateResponse:
 @router.post("/enhance", response_model=GenerateResponse)
 async def enhance_image(request: EnhanceRequest) -> GenerateResponse:
     """Re-generate an image at higher resolution."""
-    if not get_api_key():
-        raise HTTPException(status_code=400, detail="No API key configured")
+    _require_api_key()
 
     source_path = get_images_dir() / f"{request.image_id}.png"
     if not source_path.exists():
-        raise HTTPException(status_code=404, detail="Source image not found")
+        raise HTTPException(
+            status_code=404,
+            detail={"error_type": "server", "message": "Source image not found"},
+        )
 
     # Default to Gemini 3 Pro for best 4K support
     model_id = request.model_id or "google/gemini-3-pro-image-preview"
-    if model_id not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {model_id}")
+    _require_model(model_id)
 
     # Get original prompt from history
     history_path = get_project_dir() / "history.json"
@@ -598,39 +542,28 @@ async def enhance_image(request: EnhanceRequest) -> GenerateResponse:
             resolution=request.target_resolution,
         )
 
-        image_id = str(uuid.uuid4())
-        image_filename = f"{image_id}.png"
-        thumbnail_filename = f"{image_id}_thumb.png"
-
-        img_path = get_images_dir() / image_filename
-        thumb_path = get_thumbnails_dir() / thumbnail_filename
-
-        save_image(result["image_data"], img_path)
-        generate_thumbnail(img_path, thumb_path)
-
+        image_id, image_filename, thumbnail_filename = save_generation_result(
+            result["image_data"], get_images_dir(), get_thumbnails_dir(),
+        )
         timestamp = datetime.now(timezone.utc).isoformat()
 
-        history_entry = {
-            "image_id": image_id,
-            "image_filename": image_filename,
-            "thumbnail_filename": thumbnail_filename,
-            "prompt": original_prompt,
-            "model_id": model_id,
-            "timestamp": timestamp,
-            "text_response": result.get("text_response"),
-            "usage": result.get("usage"),
-            "resolution": request.target_resolution,
-            "source_image_id": request.image_id,
-            "edit_type": "enhance",
-        }
-        if isinstance(history, list):
-            history.append(history_entry)
-            atomic_write_json(history_path, history)
+        add_history_entry(
+            image_id=image_id,
+            image_filename=image_filename,
+            thumbnail_filename=thumbnail_filename,
+            prompt=original_prompt,
+            model_id=model_id,
+            result=result,
+            resolution=request.target_resolution,
+            source_image_id=request.image_id,
+            edit_type="enhance",
+        )
 
+        image_url, thumbnail_url = _build_image_urls(image_id)
         return GenerateResponse(
             image_id=image_id,
-            image_url=f"/api/images/default/{image_filename}",
-            thumbnail_url=f"/api/images/default/thumbnails/{thumbnail_filename}",
+            image_url=image_url,
+            thumbnail_url=thumbnail_url,
             text_response=result.get("text_response"),
             model_id=model_id,
             prompt=original_prompt,
@@ -640,14 +573,8 @@ async def enhance_image(request: EnhanceRequest) -> GenerateResponse:
         )
 
     except OpenRouterError as e:
-        log_error(f"Enhancement failed: {e.error_type} - {e.message}")
-        raise HTTPException(
-            status_code=422,
-            detail={"error_type": e.error_type, "message": e.message, "retry_after": e.retry_after},
-        )
+        raise openrouter_error_to_http(e, "Enhancement failed")
+    except HTTPException:
+        raise
     except Exception as e:
-        log_error(f"Unexpected enhancement error: {e}", e)
-        raise HTTPException(
-            status_code=500,
-            detail={"error_type": "server", "message": "An unexpected error occurred."},
-        )
+        raise unexpected_error_to_http(e, "enhancement")

@@ -3,6 +3,7 @@ import { useAppContext } from './hooks/useAppContext';
 import { api } from './services/api';
 import { ApiKeySetup } from './components/settings/ApiKeySetup';
 import { Workspace } from './components/Workspace';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
 
 function App() {
@@ -39,7 +40,11 @@ function App() {
   }
 
   // Main workspace
-  return <Workspace />;
+  return (
+    <ErrorBoundary>
+      <Workspace />
+    </ErrorBoundary>
+  );
 }
 
 export default App;

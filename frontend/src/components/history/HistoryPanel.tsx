@@ -93,17 +93,6 @@ export function HistoryPanel() {
       .catch(() => {});
   }, [dispatch]);
 
-  // Refresh history after each generation
-  useEffect(() => {
-    if (state.currentGeneration) {
-      api
-        .getHistory()
-        .then(({ entries }) => {
-          dispatch({ type: 'SET_HISTORY', history: entries });
-        })
-        .catch(() => {});
-    }
-  }, [state.currentGeneration, dispatch]);
 
   const handleDelete = async (imageId: string) => {
     await api.deleteHistoryEntry(imageId).catch(() => {});
@@ -134,6 +123,8 @@ export function HistoryPanel() {
         resolution: entry.resolution,
         style_preset: entry.style_preset,
         negative_prompt: entry.negative_prompt,
+        image_weight: entry.image_weight,
+        batch_id: entry.batch_id,
       },
     });
     dispatch({ type: 'SET_VIEW', view: 'workspace' });

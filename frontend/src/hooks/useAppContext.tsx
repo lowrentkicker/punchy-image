@@ -135,6 +135,25 @@ const initialState: AppState = {
   tourActive: false,
 };
 
+function resultToHistoryEntry(r: GenerationResult): HistoryEntry {
+  return {
+    image_id: r.image_id,
+    image_filename: r.image_url.split('/').pop() ?? '',
+    thumbnail_filename: r.thumbnail_url.split('/').pop() ?? '',
+    prompt: r.prompt,
+    model_id: r.model_id,
+    timestamp: r.timestamp,
+    text_response: r.text_response,
+    usage: r.usage,
+    aspect_ratio: r.aspect_ratio,
+    resolution: r.resolution,
+    style_preset: r.style_preset,
+    negative_prompt: r.negative_prompt,
+    image_weight: r.image_weight,
+    batch_id: r.batch_id,
+  };
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_API_KEY_STATUS':
@@ -149,16 +168,20 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, selectedModelId: action.modelId };
     case 'START_GENERATION':
       return { ...state, isGenerating: true, error: null, requestId: action.requestId, batchResults: null, batchTotalRequested: null };
-    case 'GENERATION_SUCCESS':
+    case 'GENERATION_SUCCESS': {
+      const entry = resultToHistoryEntry(action.result);
+      const alreadyExists = state.history.some((h) => h.image_id === entry.image_id);
       return {
         ...state,
         isGenerating: false,
         currentGeneration: action.result,
+        history: alreadyExists ? state.history : [...state.history, entry],
         batchResults: null,
         batchTotalRequested: null,
         requestId: null,
         chatPanelDismissed: false,
       };
+    }
     case 'GENERATION_ERROR':
       return { ...state, isGenerating: false, error: action.error, requestId: null };
     case 'CANCEL_GENERATION':
@@ -219,15 +242,20 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, multiModel: action.multiModel, selectedModelIds: [] };
     case 'SET_SELECTED_MODEL_IDS':
       return { ...state, selectedModelIds: action.modelIds };
-    case 'BATCH_GENERATION_SUCCESS':
+    case 'BATCH_GENERATION_SUCCESS': {
+      const newEntries = action.results.map(resultToHistoryEntry);
+      const existingIds = new Set(state.history.map((h) => h.image_id));
+      const toAdd = newEntries.filter((e) => !existingIds.has(e.image_id));
       return {
         ...state,
         isGenerating: false,
         batchResults: action.results,
         batchTotalRequested: action.totalRequested ?? action.results.length,
         currentGeneration: action.results[0] ?? null,
+        history: [...state.history, ...toAdd],
         requestId: null,
       };
+    }
     case 'SELECT_BATCH_RESULT':
       return { ...state, currentGeneration: action.result };
     case 'SET_MODEL_RECOMMENDATION':

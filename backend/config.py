@@ -82,8 +82,10 @@ def get_config() -> dict[str, Any]:
 
 
 def save_config(config: dict[str, Any]) -> None:
-    """Write the application config file atomically."""
+    """Write the application config file atomically with restricted permissions."""
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(CONFIG_PATH, config)
+    CONFIG_PATH.chmod(0o600)
 
 
 def get_api_key() -> str | None:

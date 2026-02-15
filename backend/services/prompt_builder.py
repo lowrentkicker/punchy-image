@@ -82,7 +82,7 @@ def _get_weight_bracket(weight: int) -> str:
         return "high"
 
 
-def _build_image_weight_instruction(weight: int, model_id: str | None) -> str:
+def build_image_weight_instruction(weight: int, model_id: str | None) -> str:
     """Build an image weight instruction string from the slider value."""
     bracket = _get_weight_bracket(weight)
     model_type = "conversational" if (model_id and is_conversational(model_id)) else "image_only"
@@ -147,7 +147,7 @@ def build_prompt(
 
     # 6. Image weight adjustment (modifies reference image instruction framing)
     if image_weight is not None and (has_character_refs or has_style_ref):
-        weight_instruction = _build_image_weight_instruction(image_weight, model_id)
+        weight_instruction = build_image_weight_instruction(image_weight, model_id)
         parts.append(weight_instruction)
 
     return ". ".join(parts)

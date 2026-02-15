@@ -1,13 +1,13 @@
 """Image generation, cancellation, image serving, export, reference upload, cost estimate, and model recommendation endpoints."""
 
 import asyncio
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
 from backend.config import MODELS, get_api_key
 from backend.models.generation import (
@@ -21,24 +21,30 @@ from backend.models.generation import (
     ReferenceUploadResponse,
 )
 from backend.services.cost_estimator import estimate_cost, log_spend
+from backend.services.history import add_history_entry
 from backend.services.image_processor import (
     EXPORT_MIME_TYPES,
     generate_thumbnail,
     image_to_base64_url,
     prepare_for_export,
-    save_image,
+    save_generation_result,
     validate_and_process_upload,
 )
 from backend.services.model_recommender import recommend_model
 from backend.services.openrouter import OpenRouterError, generate_image
 from backend.services.prompt_builder import STYLE_DISPLAY_NAMES, STYLE_PRESETS, build_prompt
+from backend.services.reference_store import (
+    delete_reference as _delete_ref_from_store,
+    resolve_reference_urls,
+    store_reference,
+)
+from backend.utils.api_errors import openrouter_error_to_http, unexpected_error_to_http
 from backend.utils.logging import log_error
 from backend.utils.storage import (
-    atomic_write_json,
     get_images_dir,
     get_project_dir,
     get_thumbnails_dir,
-    read_json,
+    list_projects,
 )
 
 router = APIRouter(tags=["generate"])
@@ -46,8 +52,19 @@ router = APIRouter(tags=["generate"])
 # Track active generations for cancellation, keyed by request_id
 _active_generations: dict[str, asyncio.Event] = {}
 
-# In-memory store for reference images (reference_id -> base64 data URL)
-_reference_images: dict[str, str] = {}
+_UUID_RE = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
+
+
+def _validate_id(value: str) -> None:
+    """Raise 404 if the value is not a valid UUID."""
+    if not _UUID_RE.match(value):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+def _validate_project(project: str) -> None:
+    """Raise 404 if the project doesn't exist."""
+    if project not in list_projects():
+        raise HTTPException(status_code=404, detail="Not found")
 
 
 def _get_references_dir() -> Path:
@@ -76,21 +93,12 @@ async def _generate_single(
         image_weight=request.image_weight,
     )
 
-    # Resolve reference images
-    reference_image_url = None
-    if request.reference_image_id:
-        reference_image_url = _reference_images.get(request.reference_image_id)
-
-    additional_image_urls: list[str] = []
-    if request.style_reference_id:
-        style_url = _reference_images.get(request.style_reference_id)
-        if style_url:
-            additional_image_urls.append(style_url)
-    if request.character_reference_ids:
-        for char_id in request.character_reference_ids:
-            char_url = _reference_images.get(char_id)
-            if char_url:
-                additional_image_urls.append(char_url)
+    # Resolve reference images via the reference store
+    reference_image_url, additional_image_urls = resolve_reference_urls(
+        reference_image_id=request.reference_image_id,
+        style_reference_id=request.style_reference_id,
+        character_reference_ids=request.character_reference_ids,
+    )
 
     result = await generate_image(
         prompt=final_prompt,
@@ -103,52 +111,40 @@ async def _generate_single(
     )
 
     # Save image and thumbnail
-    image_id = str(uuid.uuid4())
-    image_filename = f"{image_id}.png"
-    thumbnail_filename = f"{image_id}_thumb.png"
+    image_id, image_filename, thumbnail_filename = save_generation_result(
+        result["image_data"], get_images_dir(), get_thumbnails_dir(),
+    )
 
-    image_path = get_images_dir() / image_filename
-    thumbnail_path = get_thumbnails_dir() / thumbnail_filename
+    image_url = f"/api/images/default/{image_filename}"
+    thumbnail_url = f"/api/images/default/thumbnails/{thumbnail_filename}"
 
-    save_image(result["image_data"], image_path)
-    generate_thumbnail(image_path, thumbnail_path)
-
-    timestamp = datetime.now(timezone.utc).isoformat()
-    history_entry: dict[str, Any] = {
-        "image_id": image_id,
-        "image_filename": image_filename,
-        "thumbnail_filename": thumbnail_filename,
-        "prompt": request.prompt,
-        "model_id": request.model_id,
-        "timestamp": timestamp,
-        "text_response": result.get("text_response"),
-        "usage": result.get("usage"),
-        "aspect_ratio": request.aspect_ratio,
-        "resolution": request.resolution,
-        "style_preset": request.style_preset,
-        "negative_prompt": request.negative_prompt,
-        "image_weight": request.image_weight,
-        "batch_id": batch_id,
-    }
-
-    history_path = get_project_dir() / "history.json"
-    history = read_json(history_path)
-    if not isinstance(history, list):
-        history = []
-    history.append(history_entry)
-    atomic_write_json(history_path, history)
+    # Record in history
+    add_history_entry(
+        image_id=image_id,
+        image_filename=image_filename,
+        thumbnail_filename=thumbnail_filename,
+        prompt=request.prompt,
+        model_id=request.model_id,
+        result=result,
+        aspect_ratio=request.aspect_ratio,
+        resolution=request.resolution,
+        style_preset=request.style_preset,
+        negative_prompt=request.negative_prompt,
+        image_weight=request.image_weight,
+        batch_id=batch_id,
+    )
 
     # Log spend for cost tracking
     log_spend(request.model_id, request.resolution or "1K", 1)
 
     return GenerateResponse(
         image_id=image_id,
-        image_url=f"/api/images/default/{image_filename}",
-        thumbnail_url=f"/api/images/default/thumbnails/{thumbnail_filename}",
+        image_url=image_url,
+        thumbnail_url=thumbnail_url,
         text_response=result.get("text_response"),
         model_id=request.model_id,
         prompt=request.prompt,
-        timestamp=timestamp,
+        timestamp=datetime.now(timezone.utc).isoformat(),
         usage=result.get("usage"),
         aspect_ratio=request.aspect_ratio,
         resolution=request.resolution,
@@ -249,26 +245,11 @@ async def generate(request: GenerateRequest) -> GenerateResponse | BatchGenerate
             )
 
     except OpenRouterError as e:
-        log_error(f"Generation failed: {e.error_type} - {e.message}")
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "error_type": e.error_type,
-                "message": e.message,
-                "retry_after": e.retry_after,
-            },
-        )
+        raise openrouter_error_to_http(e, "Generation failed")
     except HTTPException:
         raise
     except Exception as e:
-        log_error(f"Unexpected generation error: {e}", e)
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error_type": "server",
-                "message": "An unexpected error occurred during generation.",
-            },
-        )
+        raise unexpected_error_to_http(e, "generation")
     finally:
         _active_generations.pop(request_id, None)
 
@@ -296,7 +277,7 @@ async def upload_reference(file: UploadFile) -> ReferenceUploadResponse:
 
     reference_id = str(uuid.uuid4())
     data_url = image_to_base64_url(processed_bytes)
-    _reference_images[reference_id] = data_url
+    store_reference(reference_id, data_url)
 
     ref_thumb_dir = _get_references_dir() / "thumbnails"
     ref_thumb_dir.mkdir(parents=True, exist_ok=True)
@@ -315,6 +296,7 @@ async def upload_reference(file: UploadFile) -> ReferenceUploadResponse:
 
 @router.get("/reference/{reference_id}/thumbnail")
 async def serve_reference_thumbnail(reference_id: str) -> Response:
+    _validate_id(reference_id)
     thumb_path = _get_references_dir() / "thumbnails" / f"{reference_id}_thumb.png"
     if not thumb_path.exists():
         raise HTTPException(status_code=404)
@@ -323,7 +305,8 @@ async def serve_reference_thumbnail(reference_id: str) -> Response:
 
 @router.delete("/reference/{reference_id}")
 async def delete_reference(reference_id: str) -> dict:
-    _reference_images.pop(reference_id, None)
+    _validate_id(reference_id)
+    _delete_ref_from_store(reference_id)
     ref_path = _get_references_dir() / f"{reference_id}.jpg"
     thumb_path = _get_references_dir() / "thumbnails" / f"{reference_id}_thumb.png"
     ref_path.unlink(missing_ok=True)
@@ -369,6 +352,7 @@ async def export_image(
     quality: int = Query(default=90, ge=1, le=100),
     dpi: int | None = Query(default=None, ge=72, le=600),
 ) -> Response:
+    _validate_id(image_id)
     image_path = get_images_dir() / f"{image_id}.png"
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
@@ -390,6 +374,7 @@ async def export_image(
 
 @router.get("/images/{project}/thumbnails/{filename}")
 async def serve_thumbnail(project: str, filename: str) -> Response:
+    _validate_project(project)
     thumbnail_path = get_project_dir(project) / "thumbnails" / filename
     if not thumbnail_path.exists():
         raise HTTPException(status_code=404)
@@ -397,8 +382,9 @@ async def serve_thumbnail(project: str, filename: str) -> Response:
 
 
 @router.get("/images/{project}/{filename}")
-async def serve_image(project: str, filename: str) -> Response:
+async def serve_image(project: str, filename: str) -> FileResponse:
+    _validate_project(project)
     image_path = get_project_dir(project) / "images" / filename
     if not image_path.exists():
         raise HTTPException(status_code=404)
-    return Response(content=image_path.read_bytes(), media_type="image/png")
+    return FileResponse(image_path, media_type="image/png")

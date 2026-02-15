@@ -156,9 +156,9 @@ The port can also be set with the `IMAGEGEN_PORT` environment variable.
 │   ├── main.py               # FastAPI app entry point
 │   ├── config.py             # Model definitions and configuration
 │   ├── routers/              # API route handlers
-│   ├── services/             # Business logic (OpenRouter client, prompt builder, image processing)
+│   ├── services/             # Business logic (OpenRouter client, prompt builder, image processing, history, reference store)
 │   ├── models/               # Pydantic request/response schemas
-│   └── utils/                # Storage, connectivity, logging utilities
+│   └── utils/                # Storage, connectivity, logging, error handling utilities
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.ts        # Vite + React + Tailwind
@@ -211,10 +211,14 @@ All JSON files use atomic writes (write to temp file, then rename) to prevent co
 
 ## Security
 
-- The OpenRouter API key is stored only in `~/.imagegen/config.json` and is never sent to the frontend, included in API responses, or logged
+- The OpenRouter API key is stored only in `~/.imagegen/config.json` (permissions `0600`) and is never sent to the frontend, included in API responses, or logged
 - The server binds to `localhost` only — it is not accessible from other machines on the network
-- Exported images contain no identifying metadata (no EXIF, no prompt data). Only DPI is embedded when explicitly set by the user.
+- Exported images contain no identifying metadata (no EXIF, no prompt data). Only DPI is embedded when explicitly set by the user
 - All error logs automatically redact the API key
+- Path traversal protection on all user-supplied IDs (UUID validation) and project names (alphanumeric sanitization)
+- ZIP import validates all member paths stay within the project directory (Zip Slip protection) and enforces size/entry limits
+- ZIP export skips symlinks to prevent arbitrary file reads
+- Image uploads are guarded against decompression bombs (Pillow pixel limit enforcement)
 
 ---
 

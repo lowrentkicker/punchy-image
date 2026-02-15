@@ -13,7 +13,7 @@ export interface TargetRect {
 export function useTour() {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
-  const retryTimer = useRef<ReturnType<typeof setTimeout>>();
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const step = tourSteps[currentStep];
   const totalSteps = tourSteps.length;

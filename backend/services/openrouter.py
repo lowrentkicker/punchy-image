@@ -16,6 +16,31 @@ TIMEOUT = 120.0
 MAX_RETRIES = 3
 BACKOFF_BASE = 2
 
+# Shared httpx client for connection pooling (initialized via startup/shutdown)
+_client: httpx.AsyncClient | None = None
+
+
+def startup() -> None:
+    """Create the shared httpx client. Call from app lifespan startup."""
+    global _client
+    _client = httpx.AsyncClient(timeout=TIMEOUT)
+
+
+async def shutdown() -> None:
+    """Close the shared httpx client. Call from app lifespan shutdown."""
+    global _client
+    if _client:
+        await _client.aclose()
+        _client = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    """Return the shared client, or create a fallback if not initialized."""
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=TIMEOUT)
+    return _client
+
 
 class OpenRouterError(Exception):
     """Typed error from OpenRouter API calls."""
@@ -172,7 +197,9 @@ def _compress_payload_images(payload: dict[str, Any], max_bytes: int) -> None:
                     "Reference image too large for this model's 4.5MB request limit. "
                     "Try using a smaller image.",
                 )
+            del image_bytes  # Free original decoded bytes before re-encoding
             part["image_url"]["url"] = image_to_base64_url(compressed)
+            del compressed  # Free compressed bytes after encoding to base64
 
     # Final size check
     final_size = len(json.dumps(payload).encode())
@@ -191,25 +218,25 @@ async def test_connection() -> tuple[bool, str]:
     if not api_key:
         return False, "No API key configured"
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                "https://openrouter.ai/api/v1/models",
-                headers=_build_headers(api_key),
-                timeout=15.0,
-            )
-            if response.status_code == 200:
-                return True, "Connection successful"
-            elif response.status_code == 401:
-                return False, "Invalid API key"
-            elif response.status_code == 402:
-                return False, "Insufficient credits on your OpenRouter account"
-            else:
-                return False, f"Unexpected response: {response.status_code}"
-        except httpx.ConnectError:
-            return False, "Unable to connect to OpenRouter. Check your internet connection."
-        except httpx.TimeoutException:
-            return False, "Connection timed out"
+    client = _get_client()
+    try:
+        response = await client.get(
+            "https://openrouter.ai/api/v1/models",
+            headers=_build_headers(api_key),
+            timeout=15.0,
+        )
+        if response.status_code == 200:
+            return True, "Connection successful"
+        elif response.status_code == 401:
+            return False, "Invalid API key"
+        elif response.status_code == 402:
+            return False, "Insufficient credits on your OpenRouter account"
+        else:
+            return False, f"Unexpected response: {response.status_code}"
+    except httpx.ConnectError:
+        return False, "Unable to connect to OpenRouter. Check your internet connection."
+    except httpx.TimeoutException:
+        return False, "Connection timed out"
 
 
 async def generate_image(
@@ -292,13 +319,13 @@ async def generate_image(
             raise OpenRouterError("timeout", "Generation cancelled by user")
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    OPENROUTER_URL,
-                    headers=headers,
-                    json=payload,
-                    timeout=TIMEOUT,
-                )
+            client = _get_client()
+            response = await client.post(
+                OPENROUTER_URL,
+                headers=headers,
+                json=payload,
+                timeout=TIMEOUT,
+            )
 
             if response.status_code == 200:
                 return _parse_response(response.json(), model_info)

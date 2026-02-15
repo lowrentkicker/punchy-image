@@ -12,11 +12,16 @@ from PIL import Image
 from backend.config import is_conversational
 
 
+MAX_MASK_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
 def decode_mask(mask_base64: str) -> Image.Image:
     """Decode a base64-encoded mask PNG to a PIL Image."""
     if "," in mask_base64:
         mask_base64 = mask_base64.split(",", 1)[1]
     raw = base64.b64decode(mask_base64)
+    if len(raw) > MAX_MASK_BYTES:
+        raise ValueError(f"Mask exceeds {MAX_MASK_BYTES // (1024 * 1024)}MB limit")
     return Image.open(io.BytesIO(raw)).convert("L")
 
 
