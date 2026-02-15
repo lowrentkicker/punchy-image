@@ -11,6 +11,7 @@ export function MaskCanvas() {
   const { currentGeneration, isMaskMode, selectedModelId, isGenerating } = state;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const visualCanvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [tool, setTool] = useState<Tool>('brush');
   const [brushSize, setBrushSize] = useState(30);
@@ -20,17 +21,46 @@ export function MaskCanvas() {
   const [lassoPoints, setLassoPoints] = useState<{ x: number; y: number }[]>([]);
   const [inverted, setInverted] = useState(false);
 
-  // Initialize canvas when image loads
+  // Update the visual overlay to show dimmed unmasked areas
+  const updateVisualization = useCallback(() => {
+    const dataCanvas = canvasRef.current;
+    const visualCanvas = visualCanvasRef.current;
+    if (!dataCanvas || !visualCanvas) return;
+
+    const visualCtx = visualCanvas.getContext('2d');
+    if (!visualCtx) return;
+
+    // Fill entire visual canvas with a dark semi-transparent overlay
+    visualCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
+    visualCtx.globalCompositeOperation = 'source-over';
+    visualCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    visualCtx.fillRect(0, 0, visualCanvas.width, visualCanvas.height);
+
+    // Cut out the masked areas so the original image shows through at full brightness
+    visualCtx.globalCompositeOperation = 'destination-out';
+    visualCtx.drawImage(dataCanvas, 0, 0);
+    visualCtx.globalCompositeOperation = 'source-over';
+  }, []);
+
+  // Initialize both canvases when image loads
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
+    const visualCanvas = visualCanvasRef.current;
     const img = imageRef.current;
-    if (!canvas || !img) return;
+    if (!canvas || !visualCanvas || !img) return;
 
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    visualCanvas.width = img.naturalWidth;
+    visualCanvas.height = img.naturalHeight;
+    const visualCtx = visualCanvas.getContext('2d');
+    if (visualCtx) {
+      visualCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
     }
   }, []);
 
@@ -41,7 +71,7 @@ export function MaskCanvas() {
   if (!isMaskMode || !currentGeneration) return null;
 
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = visualCanvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
@@ -59,6 +89,7 @@ export function MaskCanvas() {
     ctx.beginPath();
     ctx.arc(x, y, brushSize, 0, Math.PI * 2);
     ctx.fill();
+    updateVisualization();
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -99,6 +130,7 @@ export function MaskCanvas() {
         Math.abs(y - rectStart.y),
       );
       setRectStart(null);
+      updateVisualization();
     } else if (tool === 'lasso' && lassoPoints.length > 2) {
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(255, 255, 255, 1)';
@@ -110,6 +142,7 @@ export function MaskCanvas() {
       ctx.closePath();
       ctx.fill();
       setLassoPoints([]);
+      updateVisualization();
     }
 
     setIsDrawing(false);
@@ -121,6 +154,7 @@ export function MaskCanvas() {
     if (ctx && canvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+    updateVisualization();
   };
 
   const handleInvert = () => {
@@ -135,6 +169,7 @@ export function MaskCanvas() {
     }
     ctx.putImageData(imageData, 0, 0);
     setInverted(!inverted);
+    updateVisualization();
   };
 
   const handleApplyMask = async () => {
@@ -182,24 +217,20 @@ export function MaskCanvas() {
             className="max-h-[60vh] max-w-full rounded-xl object-contain"
             onLoad={initCanvas}
           />
+          {/* Hidden data canvas — stores mask data (white pixels) for backend */}
           <canvas
             ref={canvasRef}
+            className="absolute inset-0 h-full w-full"
+            style={{ opacity: 0, pointerEvents: 'none' }}
+          />
+          {/* Visual overlay — dims unmasked areas, captures mouse events */}
+          <canvas
+            ref={visualCanvasRef}
             className="absolute inset-0 h-full w-full rounded-xl cursor-crosshair"
-            style={{ mixBlendMode: 'normal', opacity: 0.4 }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={() => setIsDrawing(false)}
-          />
-          {/* Colored overlay to visualize mask */}
-          <canvas
-            ref={canvasRef}
-            className="pointer-events-none absolute inset-0 h-full w-full rounded-xl"
-            style={{
-              mixBlendMode: 'multiply',
-              opacity: 0.3,
-              filter: 'hue-rotate(200deg) saturate(3)',
-            }}
           />
         </div>
       </div>

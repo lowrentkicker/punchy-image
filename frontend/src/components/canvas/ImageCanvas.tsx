@@ -100,7 +100,7 @@ export function ImageCanvas() {
       <div className="relative flex flex-1 flex-col overflow-hidden bg-base">
         <MaskCanvas />
         {/* Main selected image */}
-        <div className="relative flex flex-1 items-center justify-center p-6">
+        <div className="relative flex min-h-0 flex-1 items-center justify-center p-6">
           <img
             src={currentGeneration.image_url}
             alt={`Generated from: ${currentGeneration.prompt}`}
@@ -200,7 +200,7 @@ export function ImageCanvas() {
       {/* Mask overlay */}
       <MaskCanvas />
 
-      <div className="relative flex flex-1 items-center justify-center p-6">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center p-6">
         <img
           src={currentGeneration.image_url}
           alt={`Generated from: ${currentGeneration.prompt}`}
