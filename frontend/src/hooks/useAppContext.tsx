@@ -77,7 +77,10 @@ export type Action =
   | { type: 'SET_FALLBACK_SUGGESTION'; suggestion: FallbackSuggestion | null }
   | { type: 'SET_STORAGE_WARNING'; level: null | 'warning' | 'critical' }
   | { type: 'SET_SPEND_LIMIT_WARNING'; warning: boolean }
-  | { type: 'RESET_WORKSPACE' };
+  | { type: 'RESET_WORKSPACE' }
+  // Tour
+  | { type: 'START_TOUR' }
+  | { type: 'END_TOUR' };
 
 const initialState: AppState = {
   apiKeyConfigured: null,
@@ -127,6 +130,7 @@ const initialState: AppState = {
   fallbackSuggestion: null,
   storageWarningLevel: null,
   spendLimitWarning: false,
+  tourActive: false,
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -262,6 +266,10 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, storageWarningLevel: action.level };
     case 'SET_SPEND_LIMIT_WARNING':
       return { ...state, spendLimitWarning: action.warning };
+    case 'START_TOUR':
+      return { ...state, tourActive: true, activeView: 'workspace', sidebarCollapsed: false, controlsCollapsed: false };
+    case 'END_TOUR':
+      return { ...state, tourActive: false };
     case 'RESET_WORKSPACE':
       return {
         ...state,

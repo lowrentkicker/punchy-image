@@ -19,7 +19,7 @@ export function PromptInput({
   };
 
   return (
-    <div>
+    <div data-tour="prompt-input">
       <label
         htmlFor="prompt"
         className="mb-1.5 block text-xs font-medium text-[--text-secondary]"

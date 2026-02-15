@@ -11,6 +11,7 @@ import { ComposePanel } from './compose/ComposePanel';
 import { TemplateLibrary } from './templates/TemplateLibrary';
 import { useAppContext } from '../hooks/useAppContext';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
+import { GuidedTour } from './tour/GuidedTour';
 
 export function Workspace() {
   const { state, dispatch } = useAppContext();
@@ -59,6 +60,7 @@ export function Workspace() {
         </div>
       </div>
       <FallbackSuggestionModal />
+      {state.tourActive && <GuidedTour />}
     </div>
   );
 }

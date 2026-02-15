@@ -4,7 +4,7 @@ export function ModelSelector() {
   const { state, dispatch } = useAppContext();
 
   return (
-    <div>
+    <div data-tour="model-selector">
       <label
         htmlFor="model-select"
         className="mb-1.5 block text-xs font-medium text-[--text-secondary]"

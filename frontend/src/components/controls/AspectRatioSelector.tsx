@@ -15,7 +15,7 @@ export function AspectRatioSelector() {
   const { state, dispatch } = useAppContext();
 
   return (
-    <div>
+    <div data-tour="aspect-resolution">
       <label className="mb-1.5 block text-xs font-medium text-[--text-secondary]">
         Aspect Ratio
       </label>

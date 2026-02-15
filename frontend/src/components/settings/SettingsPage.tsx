@@ -113,6 +113,17 @@ export function SettingsPage() {
 
         <hr className="border-[--border-default]" />
         <StorageSection />
+
+        <hr className="border-[--border-default]" />
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-[--text-primary]">Help</h3>
+          <button
+            onClick={() => dispatch({ type: 'START_TOUR' })}
+            className="w-full rounded-xl border border-[--border-medium] px-4 py-2.5 text-sm text-[--text-secondary] hover:bg-surface-2 hover:text-[--text-primary] transition-colors duration-150"
+          >
+            Replay Feature Tour
+          </button>
+        </div>
       </div>
     </div>
   );

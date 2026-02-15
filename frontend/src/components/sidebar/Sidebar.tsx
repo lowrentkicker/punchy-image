@@ -49,7 +49,7 @@ export function Sidebar() {
       <ProjectSelector />
 
       {/* Navigation */}
-      <nav className="flex flex-1 flex-col gap-1 px-2 py-2">
+      <nav className="flex flex-1 flex-col gap-1 px-2 py-2" data-tour="sidebar-nav">
         <NavItem
           icon={
             <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -271,4 +271,6 @@ export interface AppState {
   fallbackSuggestion: FallbackSuggestion | null;
   storageWarningLevel: null | 'warning' | 'critical';
   spendLimitWarning: boolean;
+  // Tour
+  tourActive: boolean;
 }

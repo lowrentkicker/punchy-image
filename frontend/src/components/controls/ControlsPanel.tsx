@@ -169,6 +169,7 @@ export function ControlsPanel() {
         {/* References — collapsed by default, auto-expands when images present */}
         <CollapsibleSection
           title="References"
+          data-tour="references-section"
           storageKey="imagegen-section-references"
           expanded={hasReferenceContent || refsManualOpen}
           onToggle={setRefsManualOpen}

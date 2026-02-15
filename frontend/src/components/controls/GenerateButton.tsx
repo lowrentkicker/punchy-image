@@ -35,6 +35,7 @@ export function GenerateButton({
     <button
       onClick={onGenerate}
       disabled={disabled}
+      data-tour="generate-button"
       className="w-full h-12 rounded-3xl bg-cta-bg text-cta-text text-[1rem] font-semibold hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 transition-all duration-150 cursor-pointer"
     >
       Generate

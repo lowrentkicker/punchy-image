@@ -10,6 +10,8 @@ interface CollapsibleSectionProps {
   onToggle?: (expanded: boolean) => void;
   /** Optional badge count shown next to the title */
   badge?: number;
+  /** Optional data-tour attribute for guided tour targeting */
+  'data-tour'?: string;
 }
 
 function readStorage(key: string): boolean | null {
@@ -29,6 +31,7 @@ export function CollapsibleSection({
   expanded: controlledExpanded,
   onToggle,
   badge,
+  'data-tour': dataTour,
 }: CollapsibleSectionProps) {
   const [internalExpanded, setInternalExpanded] = useState(() => {
     if (storageKey) {
@@ -56,7 +59,7 @@ export function CollapsibleSection({
   }, [storageKey, internalExpanded]);
 
   return (
-    <section>
+    <section data-tour={dataTour}>
       <button
         type="button"
         onClick={toggle}

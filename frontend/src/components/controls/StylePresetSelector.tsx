@@ -18,7 +18,7 @@ export function StylePresetSelector() {
     : [{ id: 'none', name: 'None', suffix: '' }];
 
   return (
-    <div>
+    <div data-tour="style-preset">
       <label className="mb-1.5 block text-xs font-medium text-[--text-secondary]">
         Style Preset
       </label>

@@ -40,6 +40,11 @@ export function ApiKeySetup() {
     try {
       await api.setApiKey(apiKey.trim());
       dispatch({ type: 'SET_API_KEY_STATUS', configured: true });
+      // Auto-launch tour for first-time users
+      const tourCompleted = localStorage.getItem('imagegen-tour-completed') === 'true';
+      if (!tourCompleted) {
+        setTimeout(() => dispatch({ type: 'START_TOUR' }), 600);
+      }
     } catch {
       setTestResult({ success: false, message: 'Failed to save API key' });
     } finally {
