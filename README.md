@@ -13,7 +13,7 @@ A local desktop web application for generating images from natural language usin
 ## Features
 
 ### Image Generation
-- **Text-to-image generation** across five AI models from Google, OpenAI, Black Forest Labs, and ByteDance
+- **Text-to-image generation** across six AI models from Google, OpenAI, Black Forest Labs, ByteDance, and Sourceful
 - **Image-to-image generation** with single reference image upload
 - **Style references** — upload a style image to guide the aesthetic
 - **Character/subject references** — upload up to 5 images to preserve identity across generations
@@ -39,6 +39,7 @@ A local desktop web application for generating images from natural language usin
 - **Prompt templates** — built-in and user-created templates for common workflows
 - **Generation history** — browse, reuse, download, or delete past generations
 - **Export** — PNG, JPEG, or WebP with adjustable quality (clean files, no embedded metadata)
+- **Guided feature tour** — spotlight-based onboarding walkthrough with 11 interactive steps
 
 ### Cost Management
 - **Real-time cost estimates** before generation
@@ -57,6 +58,7 @@ A local desktop web application for generating images from natural language usin
 | `gpt-5-image` | OpenAI | Conversational | Strong instruction following, text rendering |
 | `flux.2-max` | Black Forest Labs | Image-only | Top-tier quality |
 | `seedream-4.5` | ByteDance | Image-only | Detail preservation, portraits |
+| `riverflow-v2-pro` | Sourceful | Image-only | Top-tier control, perfect text rendering, integrated reasoning |
 
 **Conversational models** support multi-turn editing and return text alongside images. **Image-only models** are single-shot and return image data only.
 
@@ -74,7 +76,7 @@ A local desktop web application for generating images from natural language usin
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/lowrentkicker/punchy-image.git
 cd punchy-image
 
 # Install Python dependencies
