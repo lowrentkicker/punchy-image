@@ -9,7 +9,7 @@ Punchy Image is a local web application for generating images from natural langu
 ## Architecture
 
 - **Backend:** Python 3.11+, FastAPI
-- **Frontend:** React (TypeScript)
+- **Frontend:** React (TypeScript), Tailwind CSS 4
 - **Storage:** Local filesystem at `~/.imagegen/`
 - **API:** All model access goes through OpenRouter's `/api/v1/chat/completions` endpoint
 
@@ -104,6 +104,8 @@ Use `modalities: ["image"]` in API requests.
   ```
   frontend/src/
   ├── App.tsx                  # Root component, API key check, model loading
+  ├── main.tsx                 # Vite entry point
+  ├── index.css                # Tailwind imports, @theme design tokens, global styles
   ├── components/
   │   ├── Workspace.tsx        # Main layout router (workspace, templates, compose, history, settings views)
   │   ├── canvas/
@@ -127,7 +129,8 @@ Use `modalities: ["image"]` in API requests.
   │   │   ├── SubjectLockToggle.tsx         # Lock subject identity across edits
   │   │   ├── CostEstimateDisplay.tsx       # Real-time cost estimate
   │   │   ├── ModelRecommendationBadge.tsx  # Smart model suggestion with comparison matrix
-  │   │   └── ExportOptions.tsx             # PNG/JPEG/WebP export with quality slider
+  │   │   ├── ExportOptions.tsx             # PNG/JPEG/WebP export with quality slider
+  │   │   └── CollapsibleSection.tsx        # Reusable collapsible section wrapper
   │   ├── sidebar/
   │   │   └── Sidebar.tsx                   # Navigation sidebar with project selector
   │   ├── history/
@@ -167,6 +170,7 @@ Use `modalities: ["image"]` in API requests.
 - API calls: All API calls go to the local FastAPI backend (`http://localhost:{port}/api/...`). The frontend never calls OpenRouter directly.
 - Loading states: Every generation request must show a loading indicator. The UI must remain responsive during generation (no blocking renders).
 - The frontend should load thumbnails (not full-resolution images) in the history panel and anywhere multiple images are displayed.
+- Styling: Use Tailwind CSS utility classes. Design tokens (colors, spacing, typography) are defined in `frontend/src/index.css` using Tailwind v4's `@theme` syntax. Follow the color system defined there — do not introduce arbitrary color values.
 
 ### Naming
 
